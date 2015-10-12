@@ -21,3 +21,10 @@ package "pcg" (
   archive(byte) = "pcg.cma"
   archive(native) = "pcg.cmxa"
 )
+
+package "orderme" (
+  version = "0.1"
+  description = "Solution to Order-Maintenance and List-labeling problems"
+  archive(byte) = "pcg.cma"
+  archive(native) = "pcg.cmxa"
+)
