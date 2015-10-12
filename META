@@ -1,0 +1,23 @@
+version = "0.1"
+description = "Various algorithms in OCaml"
+
+package "hll" (
+  version = "0.1"
+  description = "HyperLogLog in OCaml"
+  archive(byte) = "hll.cma"
+  archive(native) = "hll.cmxa"
+)
+
+package "jmphash" (
+  version = "0.1"
+  description = "Jump Consistent Hashing in OCaml"
+  archive(byte) = "jmphash.cma"
+  archive(native) = "jmphash.cmxa"
+)
+
+package "pcg" (
+  version = "0.1"
+  description = "PCG random generator in OCaml"
+  archive(byte) = "pcg.cma"
+  archive(native) = "pcg.cmxa"
+)
