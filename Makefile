@@ -1,8 +1,12 @@
 
-SUB = hll jmphash pcg orderme
+SUB = hll jmphash pcg orderme doubledouble
 
-all clean::
+all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
+
+clean::
+	for i in $(SUB); do $(MAKE) -C $$i $@; done
+	for i in $(SUB); do rm -f $$i/OCamlMakefile; done
 
 RESULT = grenier
 
@@ -29,8 +33,11 @@ LIBINSTALL_FILES =     		 \
 	orderme/orderManaged.cmi \
 	orderme/orderme.a        \
 	orderme/orderme.cma      \
-	orderme/orderme.cmxa
-
+	orderme/orderme.cmxa     \
+	doubledouble/doubledouble.mli \
+	doubledouble/doubledouble.cmi \
+	doubledouble/doubledouble.cmo \
+	doubledouble/doubledouble.cmx
 
 -include OCamlMakefile
 

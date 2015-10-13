@@ -25,6 +25,13 @@ package "pcg" (
 package "orderme" (
   version = "0.1"
   description = "Solution to Order-Maintenance and List-labeling problems"
-  archive(byte) = "pcg.cma"
-  archive(native) = "pcg.cmxa"
+  archive(byte) = "orderme.cma"
+  archive(native) = "orderme.cmxa"
+)
+
+package "doubledouble" (
+  description = "High precision floating point arithmetic (around 106 bits)"
+  version     = "0.1"
+  archive(byte)   = "doubledouble.cmo"
+  archive(native) = "doubledouble.cmx"
 )
