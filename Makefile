@@ -1,5 +1,5 @@
 
-SUB = hll jmphash pcg orderme doubledouble
+SUB = hll jmphash pcg orderme doubledouble physh
 
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
@@ -12,20 +12,20 @@ RESULT = grenier
 
 LIBINSTALL_FILES =     		 \
 	hll/hll.mli          		 \
+	hll/hll.cmi          		 \
+	hll/hll_consts.cmi   		 \
 	hll/hll.a            		 \
 	hll/hll.cma          		 \
-	hll/hll.cmi          		 \
 	hll/hll.cmxa         		 \
-	hll/hll_consts.cmi   		 \
 	jmphash/jmphash.mli  		 \
+	jmphash/jmphash.cmi  		 \
 	jmphash/jmphash.a    		 \
 	jmphash/jmphash.cma  		 \
-	jmphash/jmphash.cmi  		 \
 	jmphash/jmphash.cmxa 		 \
 	pcg/pcg.mli          		 \
+	pcg/pcg.cmi          		 \
 	pcg/pcg.a            		 \
 	pcg/pcg.cma          		 \
-	pcg/pcg.cmi          		 \
 	pcg/pcg.cmxa         		 \
 	orderme/orderList.mli    \
 	orderme/orderManaged.mli \
@@ -37,7 +37,14 @@ LIBINSTALL_FILES =     		 \
 	doubledouble/doubledouble.mli \
 	doubledouble/doubledouble.cmi \
 	doubledouble/doubledouble.cmo \
-	doubledouble/doubledouble.cmx
+	doubledouble/doubledouble.cmx \
+	physh/physh.mli          \
+	physh/physh.cmi          \
+	physh/physh.a            \
+	physh/physh.cma          \
+	physh/physh.cmxa         \
+	physh/lib_physh_stubs.a  \
+	physh/dll_physh_stubs.so
 
 -include OCamlMakefile
 

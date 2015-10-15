@@ -35,3 +35,10 @@ package "doubledouble" (
   archive(byte)   = "doubledouble.cmo"
   archive(native) = "doubledouble.cmx"
 )
+
+package "physh" (
+  description = "Physical hashtable and hashset"
+  version     = "0.1"
+  archive(byte)   = "physh.cma"
+  archive(native) = "physh.cmxa"
+)
