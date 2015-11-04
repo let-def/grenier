@@ -44,7 +44,13 @@ LIBINSTALL_FILES =     		 \
 	physh/physh.cma          \
 	physh/physh.cmxa         \
 	physh/lib_physh_stubs.a  \
-	physh/dll_physh_stubs.so
+	physh/dll_physh_stubs.so \
+	baltree/baltree.a        \
+	baltree/baltree.cma      \
+	baltree/baltree.cmxa     \
+	baltree/bt1.cmi          \
+	baltree/bt2.cmi          \
+	baltree/mbt.cmi
 
 -include OCamlMakefile
 
