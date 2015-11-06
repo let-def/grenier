@@ -1,5 +1,5 @@
 
-SUB = hll jmphash pcg orderme doubledouble physh
+SUB = hll jmphash pcg orderme doubledouble physh baltree
 
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
