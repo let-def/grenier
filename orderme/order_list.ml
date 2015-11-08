@@ -9,17 +9,12 @@ let average x y = (x land y) + (x lxor y) / 2
 
 let curr_index t = t.tag
 
+let rec sentinel = { tag = 0; prev = sentinel; next = sentinel; counter = ref 0 }
+
 let is_first t = t.prev == t
 let is_last  t = t == t.next
 
-let is_valid t =
-  let result =
-    not (is_last t && is_first t) ||
-    (!(t.counter) = 1 && t.tag = 0) || t.tag = min_int
-  in
-  (*if not result then
-    Printf.eprintf "tag is %d, counter is %d\n" t.tag !(t.counter);*)
-  result
+let is_valid t = t.next != sentinel
 
 let prev_index t =
   if is_first t then
@@ -65,40 +60,23 @@ let root () =
   t
 
 let forget t =
-  let is_last = is_last t and is_first = is_first t in
-  if is_first && is_last then (
-    if t.tag = 0 && !(t.counter) = 1 then
-      decr t.counter
-    else
-      assert (t.tag = min_int)
-  ) else if is_first then (
-    let {next; counter} = t in
-    t.next <- t;
-    next.prev <- next;
-    decr counter;
-    if !counter = 1 then next.tag <- 0;
-    consistent t;
-    consistent next
-  ) else if is_last then (
-    let {prev; counter} = t in
-    t.prev <- t;
-    prev.next <- prev;
-    decr counter;
-    if !counter = 1 then prev.tag <- 0;
-    consistent prev
-  ) else (
+  if is_valid t then begin
     let {prev; next; counter} = t in
-    t.prev <- t;
-    t.next <- t;
-    prev.next <- next;
-    next.prev <- prev;
+    if is_first t then
+      next.prev <- next
+    else if is_last t then
+      prev.next <- next
+    else (
+      prev.next <- next;
+      next.prev <- prev;
+    );
     decr counter;
-    assert (!counter > 1);
+    t.next <- sentinel;
+    t.prev <- sentinel;
     consistent prev;
-    consistent next
-  );
-  t.tag <- min_int;
-  consistent t
+    consistent next;
+    consistent t
+  end
 
 let same_order t1 t2 =
   is_valid t1 &&
@@ -214,3 +192,6 @@ let before t =
   consistent t;
   consistent t';
   t'
+
+let unsafe_next t = t.next
+let unsafe_prev t = t.prev

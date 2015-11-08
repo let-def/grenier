@@ -1,6 +1,6 @@
-type t = {t : Order_list.t}
+type t = {t : Order_indir.t}
 
-open Order_list
+open Order_indir
 
 let is_valid t = is_valid t.t
 
