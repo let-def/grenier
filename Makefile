@@ -61,3 +61,6 @@ uninstall: libuninstall
 reinstall:
 	-$(MAKE) uninstall
 	$(MAKE) install
+
+OCAMLFLAGS += -g
+OCAMLLDFLAGS += -g
