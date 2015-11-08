@@ -1,6 +1,6 @@
-type t = {t : OrderList.t}
+type t = {t : Order_list.t}
 
-open OrderList
+open Order_list
 
 let is_valid t = is_valid t.t
 

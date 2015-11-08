@@ -1,6 +1,6 @@
 all: byte-code-library native-code-library
 
-SOURCES = orderList.mli orderList.ml orderManaged.mli orderManaged.ml
+SOURCES = order_list.mli order_list.ml order_managed.mli order_managed.ml
 RESULT = orderme
 
 -include OCamlMakefile
