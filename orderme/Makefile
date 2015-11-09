@@ -11,3 +11,10 @@ RESULT = orderme
 OCamlMakefile:
 	ln -s ../$@ $@
 
+test:
+	ocamlopt -o test_order.native unix.cmxa -cclib -L. orderme.cmxa test_order.ml
+	./test_order.native 100
+
+bench:
+	ocamlopt -o bench_order.native unix.cmxa -cclib -L. orderme.cmxa bench_order.ml
+	./bench_order.native 5_000_000

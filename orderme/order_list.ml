@@ -125,18 +125,16 @@ let find_span n =
 let rec relabel_span_big root step tag = function
   | 1 ->
     root.tag <- tag;
-    assert (tag < next_index root)
+    assert (tag < next_index root || is_last root)
   | n ->
     root.tag <- tag;
-    (*Printf.eprintf "assert (%d > %d); step = %d\n"
-      tag (prev_index root) step;*)
     assert (tag > prev_index root);
     relabel_span_big root.next step (tag + step) (n - 1)
 
 let rec relabel_span_small node root slack tag = function
   | 1 ->
     root.tag <- tag;
-    assert (tag < next_index root)
+    assert (tag < next_index root || is_last root)
   | n ->
     root.tag <- tag;
     (*Printf.eprintf "assert (%d > %d); slack = %d\n"
@@ -150,7 +148,8 @@ let relabel node =
   let step = range / count in
   (*Printf.eprintf "range = %d, count = %d\n" range count;*)
   if step <= 1 then
-    relabel_span_small node root (range - count) (tag + 1) count
+    (assert (range >= count);
+     relabel_span_small node root (range - count) (tag + 1) count)
   else
     relabel_span_big root step (tag + step) count;
   consistents root count

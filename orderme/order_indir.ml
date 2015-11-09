@@ -6,9 +6,9 @@ type order = {
 type t = {
   mutable repr: Order_list.t;
   mutable tag: int;
-  order: order;
   mutable prev: t;
   mutable next: t;
+  order: order;
 }
 
 let rec sentinel = { repr = Order_list.root (); tag = 0;
@@ -57,7 +57,7 @@ let global_relabel t =
   in
   let n = t.order.n in
   t.order.n0 <- n;
-  let count = int_of_float (float n /. log (float n)) in
+  let count = int_of_float (log (float n) *. 4.0) in
   let step = max_int / (count + 1) * 2 in
   let tag  = ref min_int in
   let repr = ref t.repr in
