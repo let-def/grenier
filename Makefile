@@ -36,6 +36,8 @@ LIBINSTALL_FILES =              \
 	orderme/orderme.a             \
 	orderme/orderme.cma           \
 	orderme/orderme.cmxa          \
+	orderme/dllorderme_stubs.so   \
+	orderme/liborderme_stubs.a		\
 	doubledouble/doubledouble.mli \
 	doubledouble/doubledouble.cmi \
 	doubledouble/doubledouble.cmo \

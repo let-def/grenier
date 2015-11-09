@@ -1,8 +1,16 @@
-type t = {t : Order_indir.t}
+type t = {t : Order_list.t}
 
-open Order_indir
+(* Some values must be alive so that garbage collection doesn't
+   cause them to be forgotten in the middle of a computation. *)
+external i'am'alive : t -> unit =
+  "ml_orderme_i_am_live" "ml_orderme_i_am_live" "noalloc"
 
-let is_valid t = is_valid t.t
+open Order_list
+
+let is_valid t =
+  let result = is_valid t.t in
+  i'am'alive t;
+  result
 
 let forget t = forget t.t
 let root () =
@@ -13,20 +21,32 @@ let root () =
 let after t =
   let t' = {t = after t.t} in
   Gc.finalise forget t';
-  ignore t; (* t must be alive so that garbage collection doesn't
-               cause t to be forgotten in the middle of before *)
+  i'am'alive t;
   t'
 
 let before t =
   let t' = {t = before t.t} in
-  ignore t; (* t must be alive so that garbage collection doesn't
-               cause t to be forgotten in the middle of before *)
   Gc.finalise forget t';
+  i'am'alive t;
   t'
 
-let same_order t1 t2 = same_order t1.t t2.t
-let compare t1 t2 = compare t1.t t2.t
-let cardinal t = cardinal t.t
+let same_order t1 t2 =
+  let result = same_order t1.t t2.t in
+  i'am'alive t1;
+  i'am'alive t2;
+  result
+
+let compare t1 t2 =
+  let result = compare t1.t t2.t in
+  i'am'alive t1;
+  i'am'alive t2;
+  result
+
+let cardinal t =
+  let result = cardinal t.t in
+  i'am'alive t;
+  result
 
 let unsafe_check t msg =
-  unsafe_check t.t ("(Order_managed) " ^ msg)
+  unsafe_check t.t ("(Order_managed) " ^ msg);
+  i'am'alive t

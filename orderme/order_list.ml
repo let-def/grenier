@@ -29,6 +29,9 @@ let next_index t =
     t.next.tag
 
 let check t =
+  assert (is_valid t);
+  assert (is_valid t.prev);
+  assert (is_valid t.next);
   assert (t == t.prev || t.prev.next == t);
   assert (t == t.next || t.next.prev == t);
   if t.next != t then
@@ -68,7 +71,7 @@ let forget t =
     t.prev <- sentinel;
     consistent prev;
     consistent next;
-    consistent t
+    assert (not (is_valid t));
   end
 
 let same_order t1 t2 =
@@ -155,12 +158,19 @@ let relabel node =
 let after t =
   assert (is_valid t);
   let tag = average (curr_index t) (next_index t) in
+  (* IMPORTANT
+     Allocation must be done before reading t.prev/t.next.
+     It might trigger a garbage collection which can invalidate the
+     linked list (e.g if used through Order_managed).
+  *)
+  let t' = {prev = t; next = t; tag; counter = t.counter} in
   let {next; counter} = t in
-  let t' = {prev = t; next; tag; counter} in
   if t == next then
     t'.next <- t'
-  else
-    next.prev <- t';
+  else (
+    t'.next <- next;
+    next.prev <- t'
+  );
   t.next <- t';
   incr counter;
   if t'.tag = prev_index t' then
@@ -172,12 +182,19 @@ let after t =
 let before t =
   assert (is_valid t);
   let tag = average (prev_index t) (curr_index t) in
+  (* IMPORTANT
+     Allocation must be done before reading t.prev/t.next.
+     It might trigger a garbage collection which can invalidate the
+     linked list (e.g if used through Order_managed).
+  *)
+  let t' = {prev = t; next = t; tag; counter = t.counter} in
   let {prev; counter} = t in
-  let t' = {prev; next = t; tag; counter} in
   if t == prev then
     t'.prev <- t'
-  else
-    prev.next <- t';
+  else (
+    t'.prev <- prev;
+    prev.next <- t'
+  );
   t.prev <- t';
   incr counter;
   if t'.tag = prev_index t' then
