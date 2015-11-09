@@ -40,3 +40,6 @@ val is_valid : t -> bool
 (* Algorithm due to:
    Two Simplified Algorithms for Maintaining Order in a List
    Bender et al., 2002 *)
+
+(* Unsafe functions.  Used internally and for debug purposes. *)
+val unsafe_check : t -> string -> unit

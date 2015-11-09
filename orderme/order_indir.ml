@@ -201,6 +201,38 @@ let forget t =
     t.repr <- sentinel.repr;
   end
 
-(* Algorithm due to:
-   Two Simplified Algorithms for Maintaining Order in a List
-   Bender et al., 2002 *)
+let check t =
+  assert (Order_list.is_valid t.repr);
+  assert (t.order == t.next.order);
+  assert (t.order == t.prev.order);
+  assert (Order_list.compare t.prev.repr t.repr <= 0);
+  assert (Order_list.compare t.repr t.next.repr <= 0);
+  if is_local_first t then begin
+    assert (Order_list.same_order t.prev.repr t.repr);
+    if not (is_global_first t) then
+      assert (Order_list.compare t.prev.repr t.repr < 0);
+  end
+  else begin
+    assert (t.repr == t.prev.repr);
+    assert (t.prev.tag < t.tag);
+  end;
+  if is_local_last t then begin
+    assert (Order_list.same_order t.repr t.next.repr);
+    if not (is_global_last t) then
+      assert (Order_list.compare t.repr t.next.repr < 0);
+  end
+  else begin
+    assert (t.repr == t.next.repr);
+    assert (t.tag < t.next.tag);
+  end
+
+let unsafe_check t msg =
+  Order_list.unsafe_check t.repr msg;
+  try
+    if is_valid t then check t
+    else begin
+      assert (t.prev == sentinel);
+      assert (t.next == sentinel);
+    end
+  with Assert_failure (file, line, col) ->
+    raise (Assert_failure (msg ^ ": " ^ file, line, col))

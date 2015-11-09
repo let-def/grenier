@@ -27,3 +27,6 @@ let before t =
 let same_order t1 t2 = same_order t1.t t2.t
 let compare t1 t2 = compare t1.t t2.t
 let cardinal t = cardinal t.t
+
+let unsafe_check t msg =
+  unsafe_check t.t ("(Order_managed) " ^ msg)

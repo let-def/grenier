@@ -28,25 +28,18 @@ let next_index t =
   else
     t.next.tag
 
-let consistent _ = ()
-let consistents _ _ = ()
-(*let consistent t =
+let check t =
   assert (t == t.prev || t.prev.next == t);
   assert (t == t.next || t.next.prev == t);
   if t.next != t then
     assert (t.next.tag > t.tag);
   if t.prev != t then
-    assert (t.prev.tag < t.tag);
-  if t.next == t.prev then
-    begin
-      assert (t == t.next);
-      if !(t.counter) > 1 then
-        assert (t.tag = min_int)
-      else
-        assert (t.tag = min_int || t.tag = 0)
-    end
+    assert (t.prev.tag < t.tag)
 
-let rec consistents t = function
+let consistent _ = ()
+let consistents _ _ = ()
+
+(*let rec consistents t = function
   | 0 -> ()
   | 1 -> consistent t
   | n ->
@@ -65,7 +58,7 @@ let forget t =
     if is_first t then
       next.prev <- next
     else if is_last t then
-      prev.next <- next
+      prev.next <- prev
     else (
       prev.next <- next;
       next.prev <- prev;
@@ -195,3 +188,13 @@ let before t =
 
 let unsafe_next t = t.next
 let unsafe_prev t = t.prev
+
+let unsafe_check t msg =
+  try
+    if is_valid t then check t
+    else begin
+      assert (t.prev == sentinel);
+      assert (t.next == sentinel);
+    end
+  with Assert_failure (file, line, col) ->
+    raise (Assert_failure (msg ^ ": " ^ file, line, col))
