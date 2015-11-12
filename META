@@ -44,8 +44,16 @@ package "physh" (
 )
 
 package "baltree" (
-  description = "Baltree"
+  description = "Balanced trees"
   version     = "0.1"
   archive(byte)   = "baltree.cma"
   archive(native) = "baltree.cmxa"
+)
+
+package "trope" (
+  description = "Track positions accross rope(-like) operations"
+  requires    = "grenier.orderme grenier.baltree"
+  version     = "0.1"
+  archive(byte)   = "trope.cma"
+  archive(native) = "trope.cmxa"
 )

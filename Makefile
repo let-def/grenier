@@ -1,5 +1,5 @@
 
-SUB = hll jmphash pcg orderme doubledouble physh baltree
+SUB = hll jmphash pcg orderme doubledouble physh baltree trope
 
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
@@ -52,9 +52,18 @@ LIBINSTALL_FILES =              \
 	baltree/baltree.a             \
 	baltree/baltree.cma           \
 	baltree/baltree.cmxa          \
+	baltree/bt1.mli               \
 	baltree/bt1.cmi               \
+	baltree/bt2.mli               \
 	baltree/bt2.cmi               \
-	baltree/mbt.cmi
+	baltree/mbt.mli               \
+	baltree/mbt.cmi               \
+	trope/trope.a   	          	\
+	trope/trope.cma 	          	\
+	trope/trope.cmxa	          	\
+	trope/trope.mli               \
+	trope/trope.cmi
+
 
 -include OCamlMakefile
 
