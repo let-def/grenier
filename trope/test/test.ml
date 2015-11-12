@@ -1,3 +1,5 @@
+let () = Random.self_init ()
+
 module type S = module type of Trope
 
 module B0 : S = Trope
@@ -369,8 +371,10 @@ let apply b0 b1 : int op -> _ = function
           B1.remove b1 ~at:n1 ~len:n2)
 
 let max_steps =
-  try int_of_string Sys.argv.(1)
-  with Not_found -> 0
+  try
+    if Array.length Sys.argv < 2 then raise Not_found;
+    int_of_string Sys.argv.(1)
+  with _ -> 0
 
 let rec loop n b0 b1 =
   let failed' = !failed in
