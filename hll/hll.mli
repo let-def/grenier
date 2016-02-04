@@ -1,4 +1,4 @@
-(* An implementation of HyperLogLog cardinality estimator. *)
+(** An implementation of HyperLogLog probabilistic cardinality estimator. *)
 
 (** Type of HyperLogLog counters *)
 type t

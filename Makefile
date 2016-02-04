@@ -4,6 +4,11 @@ SUB = hll jmphash pcg orderme doubledouble physh baltree trope
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
 
+doc::
+	rm -rf doc;
+	mkdir doc
+	for i in $(SUB); do $(MAKE) -C $$i htdoc; mv $$i/doc/$$i doc/; done
+
 clean::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
 	for i in $(SUB); do rm -f $$i/OCamlMakefile; done

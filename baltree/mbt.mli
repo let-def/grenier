@@ -1,3 +1,8 @@
+(** {1 Type of balanced trees with a measure}
+
+    Measure is a value from a monoid that is computed from payloads and
+    accumulated along branches until reaching the root of the tree.
+*)
 module type MEASURE = sig
   type +'a measurable
   type measure

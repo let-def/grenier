@@ -1,4 +1,4 @@
-(* An implementation of "A Fast, Minimal Memory, Consistent Hash Algorithm" *)
+(** An implementation of "A Fast, Minimal Memory, Consistent Hash Algorithm" *)
 
 (** [host ~hosts key] tells you on which host, between 0 and hosts-1, you should
     store value indexed by [key].

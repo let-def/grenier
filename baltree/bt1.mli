@@ -1,4 +1,4 @@
-(** {1 Type of balanced trees} *)
+(** {1 Type of balanced trees with one custom value} *)
 type +'a t = private
   | Leaf
   | Node of int * 'a t * 'a * 'a t
