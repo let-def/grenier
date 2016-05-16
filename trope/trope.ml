@@ -47,6 +47,9 @@ let update t f =
   let tree, result = f t.tree in
   {t with tree}, result
 
+let update' t f =
+  {t with tree = f t.tree}
+
 let clear t = {t with tree = T.leaf}
 
 let compare a b =
@@ -134,16 +137,17 @@ let put_cursor t ~at content =
   in
   update t (traverse t.root at)
 
-let insert t ~at ~len =
+let insert ?left_of t ~at ~len =
   if at < 0 then
     invalid_arg "Buf.insert: [at] must be >= 0";
   if len < 0 then
     invalid_arg "Buf.insert: [len] must be >= 0";
+  let right = (left_of : unit option) = None in
   let rec aux n = function
     | T.Leaf -> T.leaf, len
     | T.Node (_, l, cell, r, _) ->
       let n0 = T.measure l + cell.offset in
-      if n < n0 then
+      if (if right then n < n0 else n <= n0) then
         let l, shift = aux n l in
         T.node l (shift_cell shift cell) r, 0
       else
@@ -152,7 +156,7 @@ let insert t ~at ~len =
   in
   fst (update t (aux at))
 
-let remove t ~at ~len =
+let remove ?left_of t ~at ~len =
   if at < 0 then
     invalid_arg "Buf.remove: [at] must be >= 0";
   if len < 0 then
@@ -173,6 +177,7 @@ let remove t ~at ~len =
           let r = rem len r in
           r
     in
+    let right = (left_of : unit option) = None in
     let rec aux n len = function
       | T.Leaf -> T.leaf
       | T.Node (_, l, cell, r, _) ->
@@ -181,7 +186,7 @@ let remove t ~at ~len =
           let l = aux n len l in
           let cell = make_cell (n0 - len - T.measure l) cell.cursor in
           T.node l cell r
-        else if n >= n0 then
+        else if (if right then n >= n0 else n > n0) then
           T.node l cell (aux (n - n0) len r)
         else (* Splitting case *)
           let l = aux n len l in
@@ -189,10 +194,7 @@ let remove t ~at ~len =
           let r = shift_tree (n - T.measure l) (rem len r) in
           T.join l r
     in
-    let aux n len t =
-      aux n len t, ()
-    in
-    fst (update t (aux at len))
+    update' t (aux at len)
 
 let remove_between t c1 c2 =
   validate t c1 "Buf.remove_between: cursor not in buffer";
@@ -239,8 +241,7 @@ let remove_between t c1 c2 =
         else (* c1 < 0 && c2 > 0 *)
           T.join (cut_left l) (cut_right r)
     in
-    let aux x = aux x, () in
-    fst (update t aux)
+    update' t aux
   end
 
 let remove_after t c len =
@@ -343,10 +344,7 @@ let remove_before t c len =
             else
               r
     in
-    let seek t =
-        seek t, ()
-    in
-    fst (update t seek)
+    update' t seek
 
 let insert_before t c len =
   validate t c "Buf.insert_before: cursor not in buffer";
@@ -366,8 +364,7 @@ let insert_before t c len =
         else
           T.node l (shift_cell len cell) r
     in
-    let aux t = aux t, () in
-    fst (update t aux)
+    update' t aux
 
 let insert_after t c len =
   validate t c "Buf.insert_after: cursor not in buffer";

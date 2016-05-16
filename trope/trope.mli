@@ -14,13 +14,15 @@ val is_empty : 'a t -> bool
 
 (** Shift contents of the buffer by removing [len] units starting at [at].
     Valid iff [at >= 0 && len >= 0].
+    Cursors exactly at position [at] are removed iff called with [~left_of:()].
 *)
-val remove   : 'a t -> at:int -> len:int -> 'a t
+val remove   : ?left_of:unit -> 'a t -> at:int -> len:int -> 'a t
 
 (** Shift contents of the buffer by inserting [len] units starting at [at].
     Valid iff [at >= 0 && len >= 0].
+    Cursors exactly at position [at] are shifted iff called with [~left_of:()].
 *)
-val insert   : 'a t -> at:int -> len:int -> 'a t
+val insert   : ?left_of:unit -> 'a t -> at:int -> len:int -> 'a t
 
 
 (** {1 Cursor management} *)
@@ -100,7 +102,7 @@ val insert_after   : 'a t -> 'a cursor -> int -> 'a t
 (** {2 Looking up cursors in the buffer} *)
 
 (** [find_before t at]
-    finds the first cursor [c] in [t] satisfying [position t c <= at] *)
+    finds the last cursor [c] in [t] satisfying [position t c <= at] *)
 val find_before    : 'a t -> int -> 'a cursor option
 
 (** [find_after t at]
@@ -108,10 +110,10 @@ val find_before    : 'a t -> int -> 'a cursor option
 val find_after     : 'a t -> int -> 'a cursor option
 
 (** [cursor_before t c]
-    finds the first cursor [c'] in [t] satisfying [compare c' c < 0] *)
+    finds the last cursor [c'] in [t] satisfying [compare c' c < 0] *)
 val cursor_before  : 'a t -> 'a cursor -> 'a cursor option
 
-(** [cursor_before t c]
+(** [cursor_after t c]
     finds the first cursor [c'] in [t] satisfying [compare c' c > 0] *)
 val cursor_after   : 'a t -> 'a cursor -> 'a cursor option
 
