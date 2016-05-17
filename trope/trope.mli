@@ -65,6 +65,11 @@ val put_before : 'a t -> 'a cursor -> 'a -> 'a t * 'a cursor
 *)
 val put_after : 'a t -> 'a cursor -> 'a -> 'a t * 'a cursor
 
+(** Reinsert a cursor that was removed by a previous deletion.
+    Cursor is inserted at the left-most valid position.
+*)
+val put_back : 'a t -> 'a cursor -> 'a t
+
 (** [rem_cursor t c] removes a cursor from the buffer.
     Valid iff [member t c]. *)
 val rem_cursor : 'a t -> 'a cursor -> 'a t

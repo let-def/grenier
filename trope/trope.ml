@@ -120,7 +120,7 @@ let rem_cursor t c0 =
 
 let put_cursor t ~at content =
   if at < 0 then
-    invalid_arg "Buf.put_cursor: [at] must be >= 0";
+    invalid_arg "Trope.put_cursor: [at] must be >= 0";
   let rec traverse before at = function
     | T.Leaf ->
       let cursor = {position = O.after before; content} in
@@ -139,9 +139,9 @@ let put_cursor t ~at content =
 
 let insert ?left_of t ~at ~len =
   if at < 0 then
-    invalid_arg "Buf.insert: [at] must be >= 0";
+    invalid_arg "Trope.insert: [at] must be >= 0";
   if len < 0 then
-    invalid_arg "Buf.insert: [len] must be >= 0";
+    invalid_arg "Trope.insert: [len] must be >= 0";
   let right = (left_of : unit option) = None in
   let rec aux n = function
     | T.Leaf -> T.leaf, len
@@ -158,9 +158,9 @@ let insert ?left_of t ~at ~len =
 
 let remove ?left_of t ~at ~len =
   if at < 0 then
-    invalid_arg "Buf.remove: [at] must be >= 0";
+    invalid_arg "Trope.remove: [at] must be >= 0";
   if len < 0 then
-    invalid_arg "Buf.remove: [len] must be >= 0";
+    invalid_arg "Trope.remove: [len] must be >= 0";
   if len = 0 then
     t
   else
@@ -197,15 +197,15 @@ let remove ?left_of t ~at ~len =
     update' t (aux at len)
 
 let remove_between t c1 c2 =
-  validate t c1 "Buf.remove_between: cursor not in buffer";
-  validate t c2 "Buf.remove_between: cursor not in buffer";
+  validate t c1 "Trope.remove_between: cursor not in buffer";
+  validate t c2 "Trope.remove_between: cursor not in buffer";
   if c1 == c2 then t
   else if compare c1 c2 > 0 then
     invalid_arg
-      "Buf.remove_between: cursors must be in increaing order"
+      "Trope.remove_between: cursors must be in increaing order"
   else begin
     let rec cut_left = function
-      | T.Leaf -> invalid_arg "Buf.remove_between: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.remove_between: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let c1 = compare c1 cell.cursor in
         if c1 < 0 then
@@ -216,7 +216,7 @@ let remove_between t c1 c2 =
           T.node l cell T.leaf
     in
     let rec cut_right = function
-      | T.Leaf -> invalid_arg "Buf.remove_between: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.remove_between: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let c2 = compare c2 cell.cursor in
         if c2 > 0 then
@@ -227,7 +227,7 @@ let remove_between t c1 c2 =
           T.node T.leaf (make_cell 0 cell.cursor) r
     in
     let rec aux = function
-      | T.Leaf -> invalid_arg "Buf.remove_between: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.remove_between: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let c1 = compare c1 cell.cursor and c2 = compare c2 cell.cursor in
         if c2 < 0 then
@@ -245,9 +245,9 @@ let remove_between t c1 c2 =
   end
 
 let remove_after t c len =
-  validate t c "Buf.remove_after: cursor not in buffer";
+  validate t c "Trope.remove_after: cursor not in buffer";
   if len < 0 then
-    invalid_arg "Buf.remove_after: len must be >= 0"
+    invalid_arg "Trope.remove_after: len must be >= 0"
   else if len = 0 then
     t
   else
@@ -266,7 +266,7 @@ let remove_after t c len =
     in
     let rec seek = function
       | T.Leaf ->
-        invalid_arg "Buf.remove_after: cursor not in buffer"
+        invalid_arg "Trope.remove_after: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let c = compare c cell.cursor in
         if c < 0 then
@@ -287,9 +287,9 @@ let remove_after t c len =
     fst (update t seek)
 
 let remove_before t c len =
-  validate t c "Buf.remove_before: cursor not in buffer";
+  validate t c "Trope.remove_before: cursor not in buffer";
   if len < 0 then
-    invalid_arg "Buf.remove_before: len must be >= 0"
+    invalid_arg "Trope.remove_before: len must be >= 0"
   else if len = 0 then
     t
   else
@@ -309,7 +309,7 @@ let remove_before t c len =
     in
     let rec seek = function
       | T.Leaf ->
-        invalid_arg "Buf.remove_before: cursor not in buffer"
+        invalid_arg "Trope.remove_before: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let c = compare c cell.cursor in
         if c < 0 then
@@ -347,14 +347,14 @@ let remove_before t c len =
     update' t seek
 
 let insert_before t c len =
-  validate t c "Buf.insert_before: cursor not in buffer";
+  validate t c "Trope.insert_before: cursor not in buffer";
   if len < 0 then
-    invalid_arg "Buf.insert_before: len must be >= 0"
+    invalid_arg "Trope.insert_before: len must be >= 0"
   else if len = 0 then
     t
   else
     let rec aux = function
-      | T.Leaf -> invalid_arg "Buf.insert_before: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.insert_before: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let c = compare c cell.cursor in
         if c < 0 then
@@ -367,14 +367,14 @@ let insert_before t c len =
     update' t aux
 
 let insert_after t c len =
-  validate t c "Buf.insert_after: cursor not in buffer";
+  validate t c "Trope.insert_after: cursor not in buffer";
   if len < 0 then
-    invalid_arg "Buf.insert_after: len must be >= 0"
+    invalid_arg "Trope.insert_after: len must be >= 0"
   else if len = 0 then
     t
   else
     let rec aux = function
-      | T.Leaf -> invalid_arg "Buf.insert_after: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.insert_after: cursor not in buffer"
       | T.Node (_, l, cell, r, _) as tree ->
         let c = compare c cell.cursor in
         if c < 0 then
@@ -391,11 +391,11 @@ let insert_after t c len =
     fst (update t aux)
 
 let put_before t c0 content =
-  validate t c0 "Buf.put_before: cursor not in buffer";
+  validate t c0 "Trope.put_before: cursor not in buffer";
   let aux t =
     let c = {position = O.before c0.position; content} in
     let rec aux = function
-      | T.Leaf -> invalid_arg "Buf.put_before: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.put_before: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let i = compare c0 cell.cursor in
         if i = 0 then
@@ -412,11 +412,11 @@ let put_before t c0 content =
   update t aux
 
 let put_after t c0 content =
-  validate t c0 "Buf.put_after: cursor not in buffer";
+  validate t c0 "Trope.put_after: cursor not in buffer";
   let aux t =
     let c = {position = O.after c0.position; content} in
     let rec aux = function
-      | T.Leaf -> invalid_arg "Buf.put_after: cursor not in buffer"
+      | T.Leaf -> invalid_arg "Trope.put_after: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let i = compare c0 cell.cursor in
         if i = 0 then
@@ -429,6 +429,21 @@ let put_after t c0 content =
     aux t, c
   in
   update t aux
+
+let put_back t c =
+  validate t c "Trope.put_back: cursor not in buffer";
+  let rec aux = function
+    | T.Leaf -> T.node T.leaf (make_cell 0 c) T.leaf
+    | T.Node (_, l, cell, r, _) ->
+      let i = compare c cell.cursor in
+      if i = 0 then raise Exit
+      else if i < 0 then
+        T.node (aux l) cell r
+      else
+        T.node l cell (aux r)
+  in
+  try update' t aux
+  with Exit -> t
 
 let find_before t n =
   let rec aux n = function
@@ -460,7 +475,7 @@ let find_after t n =
   aux n t.tree
 
 let cursor_before t c =
-  validate t c "Buf.cursor_before: cursor not in buffer";
+  validate t c "Trope.cursor_before: cursor not in buffer";
   let rec aux = function
     | T.Leaf -> None
     | T.Node (_, l, cell, r, _) ->
@@ -474,7 +489,7 @@ let cursor_before t c =
   aux t.tree
 
 let cursor_after t c =
-  validate t c "Buf.cursor_after: cursor not in buffer";
+  validate t c "Trope.cursor_after: cursor not in buffer";
   let rec aux = function
     | T.Leaf -> None
     | T.Node (_, l, cell, r, _) ->
