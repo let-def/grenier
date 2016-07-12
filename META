@@ -57,3 +57,11 @@ package "trope" (
   archive(byte)   = "trope.cma"
   archive(native) = "trope.cmxa"
 )
+
+package "binpacking" (
+  version = "0.1"
+  description = "Binpacking in 2d"
+  archive(byte) = "binpacking.cma"
+  archive(native) = "binpacking.cmxa"
+)
+
