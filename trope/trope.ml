@@ -511,16 +511,3 @@ let to_list t =
       aux ((n', cell.cursor) :: acc) n l
   in
   aux [] 0 t.tree
-
-
-module Anchor = Order_managed
-
-type anchor = Anchor.t
-
-let cursor_anchor t = t.position
-
-let make_cursor_before anchor content =
-  { position = Anchor.before anchor; content }
-
-let make_cursor_after anchor content =
-  { position = Anchor.after anchor; content }
