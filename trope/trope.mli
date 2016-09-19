@@ -24,7 +24,6 @@ val remove   : ?left_of:unit -> 'a t -> at:int -> len:int -> 'a t
 *)
 val insert   : ?left_of:unit -> 'a t -> at:int -> len:int -> 'a t
 
-
 (** {1 Cursor management} *)
 
 (** Type of cursors *)
@@ -123,3 +122,15 @@ val cursor_before  : 'a t -> 'a cursor -> 'a cursor option
 val cursor_after   : 'a t -> 'a cursor -> 'a cursor option
 
 val to_list : 'a t -> (int * 'a cursor) list
+
+(** {1 Anchor management} *)
+
+module Anchor = Order_managed
+
+type anchor = Anchor.t
+
+val cursor_anchor : 'a cursor -> anchor
+
+val make_cursor_before : anchor -> 'a -> 'a cursor
+
+val make_cursor_after : anchor -> 'a -> 'a cursor
