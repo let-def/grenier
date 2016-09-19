@@ -1,17 +1,19 @@
 module O = Order_managed
 
+type cursor = O.t
+
 include
   (struct
-    type +'a cell = {offset: int; cursor: 'a}
-    let make_cell offset cursor =
+    type +'a cell = {offset: int; cursor: cursor; value: 'a}
+    let make_cell offset cursor value =
       assert (offset >= 0);
-      {offset; cursor}
+      {offset; cursor; value}
     let shift_cell n c =
       if n = 0 then c
-      else make_cell (c.offset + n) c.cursor
+      else make_cell (c.offset + n) c.cursor c.value
   end : sig
-    type +'a cell = private {offset: int; cursor: 'a}
-    val make_cell : int -> 'a -> 'a cell
+    type +'a cell = private {offset: int; cursor: cursor; value: 'a}
+    val make_cell : int -> cursor -> 'a -> 'a cell
     val shift_cell : int -> 'a cell -> 'a cell
    end)
 
@@ -24,12 +26,7 @@ module T = Mbt.Make (struct
 
 type 'a t = {
   root: O.t;
-  tree: 'a cursor T.t;
-}
-
-and 'a cursor = {
-  content: 'a;
-  position: O.t;
+  tree: 'a T.t;
 }
 
 let create () = {
@@ -37,10 +34,8 @@ let create () = {
   tree = T.leaf;
 }
 
-let content c = c.content
-
 let validate t c msg =
-  if not (O.same_order t.root c.position) then
+  if not (O.same_order t.root c) then
     invalid_arg msg
 
 let update t f =
@@ -52,8 +47,7 @@ let update' t f =
 
 let clear t = {t with tree = T.leaf}
 
-let compare a b =
-  O.compare a.position b.position
+let compare = O.compare
 
 let is_leaf = function
   | T.Leaf -> true
@@ -68,6 +62,20 @@ let member t c =
     let o = compare c cell.cursor in
     if o = 0 then
       true
+    else if o < 0 then
+      aux l
+    else
+      aux r
+  in
+  aux t.tree
+
+let find t c =
+  let rec aux = function
+  | T.Leaf -> raise Not_found
+  | T.Node (_, l, cell, r, _) ->
+    let o = compare c cell.cursor in
+    if o = 0 then
+      cell.value
     else if o < 0 then
       aux l
     else
@@ -118,21 +126,21 @@ let rem_cursor t c0 =
   in
   fst (update t traverse)
 
-let put_cursor t ~at content =
+let put_cursor t ~at value =
   if at < 0 then
     invalid_arg "Trope.put_cursor: [at] must be >= 0";
   let rec traverse before at = function
     | T.Leaf ->
-      let cursor = {position = O.after before; content} in
-      let cell = make_cell at cursor in
+      let cursor = O.after before in
+      let cell = make_cell at cursor value in
       T.node T.leaf cell T.leaf, cursor
     | T.Node (_, l, cell, r, _) ->
       let pos = T.measure l + cell.offset in
       if at < pos then
         let l, cursor = traverse before at l in
-        T.node l (make_cell (pos - T.measure l) cell.cursor) r, cursor
+        T.node l (make_cell (pos - T.measure l) cell.cursor value) r, cursor
       else
-        let r, cursor = traverse cell.cursor.position (at - pos) r in
+        let r, cursor = traverse cell.cursor (at - pos) r in
         T.node l cell r, cursor
   in
   update t (traverse t.root at)
@@ -170,7 +178,7 @@ let remove ?left_of t ~at ~len =
         let n0 = T.measure l + cell.offset in
         if len <= n0 then
           let l = rem len l in
-          let cell = make_cell (n0 - len - T.measure l) cell.cursor in
+          let cell = make_cell (n0 - len - T.measure l) cell.cursor cell.value in
           T.node l cell r
         else
           let len = len - n0 in
@@ -184,7 +192,7 @@ let remove ?left_of t ~at ~len =
         let n0 = T.measure l + cell.offset in
         if n + len <= n0 then
           let l = aux n len l in
-          let cell = make_cell (n0 - len - T.measure l) cell.cursor in
+          let cell = make_cell (n0 - len - T.measure l) cell.cursor cell.value in
           T.node l cell r
         else if (if right then n >= n0 else n > n0) then
           T.node l cell (aux (n - n0) len r)
@@ -195,6 +203,12 @@ let remove ?left_of t ~at ~len =
           T.join l r
     in
     update' t (aux at len)
+
+let cursor_after = O.after
+
+let cursor_before = O.before
+
+let cursor_at_origin t = O.after t.root
 
 let remove_between t c1 c2 =
   validate t c1 "Trope.remove_between: cursor not in buffer";
@@ -224,7 +238,7 @@ let remove_between t c1 c2 =
         else if c2 < 0 then
           T.node (cut_right l) cell r
         else (* c2 = 0 *)
-          T.node T.leaf (make_cell 0 cell.cursor) r
+          T.node T.leaf (make_cell 0 cell.cursor cell.value) r
     in
     let rec aux = function
       | T.Leaf -> invalid_arg "Trope.remove_between: cursor not in buffer"
@@ -237,7 +251,7 @@ let remove_between t c1 c2 =
         else if c1 = 0 then
           T.node l cell (cut_right r)
         else if c2 = 0 then
-          T.node (cut_left l) (make_cell 0 cell.cursor) r
+          T.node (cut_left l) (make_cell 0 cell.cursor cell.value) r
         else (* c1 < 0 && c2 > 0 *)
           T.join (cut_left l) (cut_right r)
     in
@@ -260,7 +274,7 @@ let remove_after t c len =
           let l, shift = rem n l in
           T.node l (shift_cell (-shift) cell) r, 0
         else if n <= n1 then
-          T.node T.leaf (make_cell (n1 - n) cell.cursor) r, 0
+          T.node T.leaf (make_cell (n1 - n) cell.cursor cell.value) r, 0
         else
           rem (n - n1) r
     in
@@ -323,9 +337,9 @@ let remove_before t c len =
             let n0 = T.measure l in
             if len <= n0 then
               let l = rem len l in
-              T.node l (make_cell (n0 - T.measure l - len) cell.cursor) r
+              T.node l (make_cell (n0 - T.measure l - len) cell.cursor cell.value) r
             else
-              T.node T.leaf (make_cell 0 cell.cursor) r
+              T.node T.leaf (make_cell 0 cell.cursor cell.value) r
         else
           let n0 = T.measure r in
           let r = seek r in
@@ -390,18 +404,18 @@ let insert_after t c len =
     in
     fst (update t aux)
 
-let put_before t c0 content =
+let put_before t c0 value =
   validate t c0 "Trope.put_before: cursor not in buffer";
   let aux t =
-    let c = {position = O.before c0.position; content} in
+    let c = O.before c0 in
     let rec aux = function
       | T.Leaf -> invalid_arg "Trope.put_before: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let i = compare c0 cell.cursor in
         if i = 0 then
           T.node
-            (T.node l (make_cell cell.offset c) T.leaf)
-            (make_cell 0 cell.cursor) r
+            (T.node l (make_cell cell.offset c value) T.leaf)
+            (make_cell 0 cell.cursor cell.value) r
         else if i < 0 then
           T.node (aux l) cell r
         else
@@ -411,16 +425,16 @@ let put_before t c0 content =
   in
   update t aux
 
-let put_after t c0 content =
+let put_after t c0 value =
   validate t c0 "Trope.put_after: cursor not in buffer";
   let aux t =
-    let c = {position = O.after c0.position; content} in
+    let c = O.after c0 in
     let rec aux = function
       | T.Leaf -> invalid_arg "Trope.put_after: cursor not in buffer"
       | T.Node (_, l, cell, r, _) ->
         let i = compare c0 cell.cursor in
         if i = 0 then
-          T.node (T.node l cell T.leaf) (make_cell 0 c) r
+          T.node (T.node l cell T.leaf) (make_cell 0 c value) r
         else if i < 0 then
           T.node (aux l) cell r
         else
@@ -430,16 +444,39 @@ let put_after t c0 content =
   in
   update t aux
 
-let put_back t c =
-  validate t c "Trope.put_back: cursor not in buffer";
+let put_left t c v =
+  validate t c "Trope.put_left: cursor from different buffer";
   let rec aux = function
-    | T.Leaf -> T.node T.leaf (make_cell 0 c) T.leaf
+    | T.Leaf -> T.node T.leaf (make_cell 0 c v) T.leaf
     | T.Node (_, l, cell, r, _) ->
       let i = compare c cell.cursor in
-      if i = 0 then raise Exit
+      if i = 0 then
+        T.node l (make_cell cell.offset c v) r
       else if i < 0 then
         T.node (aux l) cell r
       else
+        T.node l cell (aux r)
+  in
+  try update' t aux
+  with Exit -> t
+
+let put_right t c v =
+  validate t c "Trope.put_right: cursor from different buffer";
+  let rec aux = function
+    | T.Leaf -> T.node T.leaf (make_cell 0 c v) T.leaf
+    | T.Node (_, l, cell, r, _) ->
+      let i = compare c cell.cursor in
+      if i = 0 then
+        T.node l (make_cell cell.offset c v) r
+      else if i < 0 then (
+        match l with
+        | T.Leaf ->
+          T.node
+            (T.node T.leaf (make_cell cell.offset c v) T.leaf)
+            (make_cell 0 cell.cursor cell.value)
+            r
+        | T.Node _ -> T.node (aux l) cell r
+      ) else
         T.node l cell (aux r)
   in
   try update' t aux
@@ -454,7 +491,7 @@ let find_before t n =
         aux n l
       else match aux (n - n0) r with
         | Some _ as result -> result
-        | None -> Some cell.cursor
+        | None -> Some (cell.cursor, cell.value)
   in
   aux n t.tree
 
@@ -468,7 +505,7 @@ let find_after t n =
       else
         let n1 = n0 + cell.offset in
         if n <= n1 then
-          Some cell.cursor
+          Some (cell.cursor, cell.value)
         else
           aux (n - n1) r
   in
@@ -484,7 +521,7 @@ let cursor_before t c =
         aux l
       else match aux r with
         | Some _ as result -> result
-        | None -> Some cell.cursor
+        | None -> Some (cell.cursor, cell.value)
   in
   aux t.tree
 
@@ -498,7 +535,7 @@ let cursor_after t c =
         aux r
       else match aux l with
         | Some _ as result -> result
-        | None -> Some cell.cursor
+        | None -> Some (cell.cursor, cell.value)
   in
   aux t.tree
 
@@ -508,6 +545,6 @@ let to_list t =
     | T.Node (_, l, cell, r, _) ->
       let n' = n + T.measure l + cell.offset in
       let acc = aux acc n' r in
-      aux ((n', cell.cursor) :: acc) n l
+      aux ((n', cell.cursor, cell.value) :: acc) n l
   in
   aux [] 0 t.tree

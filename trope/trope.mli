@@ -28,51 +28,50 @@ val insert   : ?left_of:unit -> 'a t -> at:int -> len:int -> 'a t
 (** {1 Cursor management} *)
 
 (** Type of cursors *)
-type 'a cursor
+type cursor
 
 (** Is a cursor member of a buffer ? *)
-val member  : 'a t -> 'a cursor -> bool
+val member  : 'a t -> cursor -> bool
+
+(** Find value associated to a cursor, or raise [Not_found] *)
+val find  : 'a t -> cursor -> 'a
 
 (** Compare the position of two cursors *)
-val compare : 'a cursor -> 'a cursor -> int
-
-(** Get user data associated with a cursor *)
-val content : 'a cursor -> 'a
+val compare : cursor -> cursor -> int
 
 (** Get the physical position of a cursor in a revision of a buffer *)
-val position : 'a t -> 'a cursor -> int
+val position : 'a t -> cursor -> int
 
 (** {2 Creation and removal of cursors} *)
 
 (** Create a new cursors at position [at]
     Valid iff [at >= 0].
 *)
-val put_cursor : 'a t -> at:int -> 'a -> 'a t * 'a cursor
+val put_cursor : 'a t -> at:int -> 'a -> 'a t * cursor
 
-(** Create a new cursor immediately before an existing one, at the same
-    physical position but logically preceding it by an infinitesimal amount.
-    If you insert after the new cursor or before the original one, they will be
-    separated.
-    [put_before t c x] is valid iff [member t c].
-*)
-val put_before : 'a t -> 'a cursor -> 'a -> 'a t * 'a cursor
-
-(** Create a new cursor immediately after an existing one, at the same
-    physical position but logically following it by an infinitesimal amount.
-    If you insert before the new cursor or after the original one, they will be
-    separated.
-    [put_after t c x] is valid iff [member t c].
-*)
-val put_after : 'a t -> 'a cursor -> 'a -> 'a t * 'a cursor
-
-(** Reinsert a cursor that was removed by a previous deletion.
+(** Insert or update a cursor.
     Cursor is inserted at the left-most valid position.
 *)
-val put_back : 'a t -> 'a cursor -> 'a t
+val put_left : 'a t -> cursor -> 'a -> 'a t
+
+(** Insert or update a cursor.
+    Cursor is inserted at the right-most valid position before buffer end.
+*)
+val put_right : 'a t -> cursor -> 'a -> 'a t
 
 (** [rem_cursor t c] removes a cursor from the buffer.
     Valid iff [member t c]. *)
-val rem_cursor : 'a t -> 'a cursor -> 'a t
+val rem_cursor : 'a t -> cursor -> 'a t
+
+(** [cursor_after c] creates a cursor that is immediately after [c].  *)
+val cursor_after : cursor -> cursor
+
+(** [cursor_before c] creates a cursor that is immediately before [c]. *)
+val cursor_before : cursor -> cursor
+
+(** [cursor_at_origin t] creates a cursor that is minimal for [t] (before all
+    other cursors in [t]) *)
+val cursor_at_origin : 'a t -> cursor
 
 
 (** {2 Modification of buffers} *)
@@ -81,45 +80,45 @@ val rem_cursor : 'a t -> 'a cursor -> 'a t
     [remove_between t a b] is valid iff
       [member t a && member t b && compare a b <= 0]
 *)
-val remove_between : 'a t -> 'a cursor -> 'a cursor -> 'a t
+val remove_between : 'a t -> cursor -> cursor -> 'a t
 
 (** [remove_before t c len] removes [len] units before [c].
     Valid iff [member t c && len >= 0].
 *)
-val remove_before  : 'a t -> 'a cursor -> int -> 'a t
+val remove_before  : 'a t -> cursor -> int -> 'a t
 
 (** [remove_after t c len] removes [len] units after [c].
     Valid iff [member t c && len >= 0].
 *)
-val remove_after   : 'a t -> 'a cursor -> int -> 'a t
+val remove_after   : 'a t -> cursor -> int -> 'a t
 
 (** [insert_before t c len] inserts [len] units before [c].
     Valid iff [member t c && len >= 0].
 *)
-val insert_before  : 'a t -> 'a cursor -> int -> 'a t
+val insert_before  : 'a t -> cursor -> int -> 'a t
 
 (** [insert_before t c len] inserts [len] units after [c].
     Valid iff [member t c && len >= 0].
 *)
-val insert_after   : 'a t -> 'a cursor -> int -> 'a t
+val insert_after   : 'a t -> cursor -> int -> 'a t
 
 
 (** {2 Looking up cursors in the buffer} *)
 
 (** [find_before t at]
     finds the last cursor [c] in [t] satisfying [position t c <= at] *)
-val find_before    : 'a t -> int -> 'a cursor option
+val find_before    : 'a t -> int -> (cursor * 'a) option
 
 (** [find_after t at]
     finds the first cursor [c] in [t] satisfying [position t c >= at] *)
-val find_after     : 'a t -> int -> 'a cursor option
+val find_after     : 'a t -> int -> (cursor * 'a) option
 
 (** [cursor_before t c]
     finds the last cursor [c'] in [t] satisfying [compare c' c < 0] *)
-val cursor_before  : 'a t -> 'a cursor -> 'a cursor option
+val cursor_before  : 'a t -> cursor -> (cursor * 'a) option
 
 (** [cursor_after t c]
     finds the first cursor [c'] in [t] satisfying [compare c' c > 0] *)
-val cursor_after   : 'a t -> 'a cursor -> 'a cursor option
+val cursor_after   : 'a t -> cursor -> (cursor * 'a) option
 
-val to_list : 'a t -> (int * 'a cursor) list
+val to_list : 'a t -> (int * cursor * 'a) list
