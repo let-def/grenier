@@ -5,12 +5,18 @@ RESULT = trope
 
 OCAMLFLAGS += -I ../baltree -I ../orderme
 
-.PHONY: test
+.PHONY: test.exe test
 
-test:
-	ocamlfind opt -linkpkg -package grenier.trope -o test.exe \
+test.exe:
+	ocamlfind opt -linkpkg -o test.exe -I ../orderme -I test \
+		../orderme/orderme.cmxa ../baltree/baltree.cmxa trope.cmxa \
 		test/reference.mli test/reference.ml test/test.ml
+
+test: test.exe
 	./test.exe 30000
+
+test-long: test.exe
+	./test.exe 3000000
 
 OCAMLMAKEFILE=../OCamlMakefile
 -include $(OCAMLMAKEFILE)

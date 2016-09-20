@@ -113,12 +113,12 @@ val find_before    : 'a t -> int -> (cursor * 'a) option
     finds the first cursor [c] in [t] satisfying [position t c >= at] *)
 val find_after     : 'a t -> int -> (cursor * 'a) option
 
-(** [cursor_before t c]
+(** [seek_before t c]
     finds the last cursor [c'] in [t] satisfying [compare c' c < 0] *)
-val cursor_before  : 'a t -> cursor -> (cursor * 'a) option
+val seek_before  : 'a t -> cursor -> (cursor * 'a) option
 
-(** [cursor_after t c]
+(** [seek_after t c]
     finds the first cursor [c'] in [t] satisfying [compare c' c > 0] *)
-val cursor_after   : 'a t -> cursor -> (cursor * 'a) option
+val seek_after   : 'a t -> cursor -> (cursor * 'a) option
 
 val to_list : 'a t -> (int * cursor * 'a) list

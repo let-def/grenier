@@ -138,7 +138,8 @@ let put_cursor t ~at value =
       let pos = T.measure l + cell.offset in
       if at < pos then
         let l, cursor = traverse before at l in
-        T.node l (make_cell (pos - T.measure l) cell.cursor value) r, cursor
+        T.node l
+          (make_cell (pos - T.measure l) cell.cursor cell.value) r, cursor
       else
         let r, cursor = traverse cell.cursor (at - pos) r in
         T.node l cell r, cursor
@@ -462,24 +463,20 @@ let put_left t c v =
 
 let put_right t c v =
   validate t c "Trope.put_right: cursor from different buffer";
-  let rec aux = function
-    | T.Leaf -> T.node T.leaf (make_cell 0 c v) T.leaf
+  let rec aux pad = function
+    | T.Leaf -> T.node T.leaf (make_cell pad c v) T.leaf, 0
     | T.Node (_, l, cell, r, _) ->
       let i = compare c cell.cursor in
       if i = 0 then
-        T.node l (make_cell cell.offset c v) r
+        T.node l (make_cell cell.offset c v) r, pad
       else if i < 0 then (
-        match l with
-        | T.Leaf ->
-          T.node
-            (T.node T.leaf (make_cell cell.offset c v) T.leaf)
-            (make_cell 0 cell.cursor cell.value)
-            r
-        | T.Node _ -> T.node (aux l) cell r
+        let l', pad' = aux cell.offset l in
+        T.node l' (make_cell pad' cell.cursor cell.value) r, pad
       ) else
-        T.node l cell (aux r)
+        let r', pad' = aux pad r in
+        T.node l cell r', pad'
   in
-  try update' t aux
+  try fst (update t (aux 0))
   with Exit -> t
 
 let find_before t n =
@@ -511,8 +508,8 @@ let find_after t n =
   in
   aux n t.tree
 
-let cursor_before t c =
-  validate t c "Trope.cursor_before: cursor not in buffer";
+let seek_before t c =
+  validate t c "Trope.seek_before: cursor not in buffer";
   let rec aux = function
     | T.Leaf -> None
     | T.Node (_, l, cell, r, _) ->
@@ -525,8 +522,8 @@ let cursor_before t c =
   in
   aux t.tree
 
-let cursor_after t c =
-  validate t c "Trope.cursor_after: cursor not in buffer";
+let seek_after t c =
+  validate t c "Trope.seek_after: cursor not in buffer";
   let rec aux = function
     | T.Leaf -> None
     | T.Node (_, l, cell, r, _) ->
