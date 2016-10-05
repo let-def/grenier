@@ -1,4 +1,4 @@
-version = "0.2"
+version = "0.3"
 description = "Various algorithms in OCaml"
 
 package "hll" (
@@ -53,7 +53,7 @@ package "baltree" (
 package "trope" (
   description = "Track positions accross rope(-like) operations"
   requires    = "grenier.orderme grenier.baltree"
-  version     = "0.2"
+  version     = "0.3"
   archive(byte)   = "trope.cma"
   archive(native) = "trope.cmxa"
 )

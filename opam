@@ -1,12 +1,12 @@
 opam-version: "1.2"
 name: "grenier"
-version: "0.2"
+version: "0.3"
 maintainer: "Frederic Bour <frederic.bour@lakaban.net>"
 authors: "Frederic Bour <frederic.bour@lakaban.net>"
-homepage: "https://github.com/def-lkb/grenier"
-bug-reports: "https://github.com/def-lkb/grenier"
+homepage: "https://github.com/let-def/grenier"
+bug-reports: "https://github.com/let-def/grenier"
 license: "CC0"
-dev-repo: "https://github.com/def-lkb/grenier.git"
+dev-repo: "https://github.com/let-def/grenier.git"
 build: [
   [make]
 ]
