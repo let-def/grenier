@@ -1,5 +1,6 @@
 
 SUB = hll jmphash pcg orderme doubledouble physh baltree trope
+SUB_TEST = hll orderme doubledouble trope
 
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
@@ -92,3 +93,6 @@ reinstall:
 
 OCAMLFLAGS += -g
 OCAMLLDFLAGS += -g
+
+test:
+	for i in $(SUB_TEST); do $(MAKE) -C $$i test; done

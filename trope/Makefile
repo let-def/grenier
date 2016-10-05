@@ -7,7 +7,7 @@ OCAMLFLAGS += -I ../baltree -I ../orderme
 
 .PHONY: test.exe test
 
-test.exe:
+test.exe: all
 	ocamlfind opt -linkpkg -o test.exe -I ../orderme -I test \
 		../orderme/orderme.cmxa ../baltree/baltree.cmxa trope.cmxa \
 		test/reference.mli test/reference.ml test/test.ml
