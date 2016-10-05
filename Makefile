@@ -8,7 +8,12 @@ all::
 doc::
 	rm -rf doc;
 	mkdir doc
-	for i in $(SUB); do $(MAKE) -C $$i htdoc; mv $$i/doc/$$i doc/; done
+	for i in $(SUB); do \
+			$(MAKE) -C $$i htdoc; \
+	 		mv $$i/doc/$$i doc/; \
+	 		mv doc/$$i/html doc/$$i/doc; \
+	 		rmdir $$i/doc; \
+		done
 
 clean::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
