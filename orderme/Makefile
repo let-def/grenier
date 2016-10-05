@@ -6,7 +6,7 @@ SOURCES = order_list.mli order_list.ml \
 
 RESULT = orderme
 
-test:
+test: all
 	ocamlopt -o test_order.native unix.cmxa -cclib -L. orderme.cmxa test_order.ml
 	./test_order.native 100
 
