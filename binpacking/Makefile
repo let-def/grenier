@@ -5,3 +5,6 @@ RESULT = binpacking
 
 OCAMLMAKEFILE=../OCamlMakefile
 -include $(OCAMLMAKEFILE)
+
+test: all
+	ocaml test.ml
