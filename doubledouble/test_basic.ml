@@ -1,3 +1,4 @@
+#load "doubledouble.cma";;
 (**
 Copyright (c) 2013, Frédéric Bour <frederic.bour (at) lakaban.net>
 All rights reserved.
@@ -25,7 +26,7 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **)
 module DD = Doubledouble
 open DD.Infix
@@ -36,7 +37,7 @@ let check_epsilon a b eps =
   let delta = delta a b in
   let err = DD.(to_float delta) in
   let ok = err <= eps in
-  if not ok then 
+  if not ok then
     Printf.eprintf "%f <= %f: %b (%s)\n%!" err eps (err <= eps) (DD.to_string delta);
   assert ok
 
@@ -71,10 +72,10 @@ let check_binomial_square a b =
 
 let check_binomial2 a b =
   (* (a + b)^2 *)
-  let a, b  = DD.(of_float a, of_float b) in 
-  let sum   = (a +.. b) *.. (a -.. b)     in 
-  let diff  = ~-.. (sum -.. (a *.. a))    in 
-  let delta = diff -..  (b *.. b)         in 
+  let a, b  = DD.(of_float a, of_float b) in
+  let sum   = (a +.. b) *.. (a -.. b)     in
+  let diff  = ~-.. (sum -.. (a *.. a))    in
+  let delta = diff -..  (b *.. b)         in
   assert (diff =.. (b *.. b));
   assert (DD.is_zero delta)
 
@@ -110,7 +111,7 @@ let () = (* Test Mult Div *)
   check_mult_div DD.two_pi DD.e 1e-30;
   check_mult_div DD.pi_2   DD.e 1e-30;
   check_mult_div (DD.of_float 39.4) (DD.of_int 10) 1e-30
- 
+
 let () = (* Test Div Mult *)
   check_div_mult DD.pi DD.e 1e-30;
   check_div_mult (DD.of_float 39.4) (DD.of_int 10) 1e-30

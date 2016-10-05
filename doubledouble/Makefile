@@ -5,3 +5,8 @@ RESULT = doubledouble
 
 OCAMLMAKEFILE=../OCamlMakefile
 -include $(OCAMLMAKEFILE)
+
+test: all
+	ocaml test_basic.ml
+	ocaml test_io.ml
+	ocaml test_compute.ml

@@ -1,3 +1,4 @@
+#load "doubledouble.cma";;
 (**
 Copyright (c) 2013, Frédéric Bour <frederic.bour (at) lakaban.net>
 All rights reserved.
@@ -25,7 +26,7 @@ ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
 LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
 ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 **)
 open Doubledouble.Infix
 
@@ -44,10 +45,10 @@ let arctan_by_taylor_series x =
   let x2 = Doubledouble.sqr x in
   let rec aux ~t ~at ~d ~sign =
     let at = if sign then at +.. Doubledouble.(pow x d /.. of_int d)
-                     else at -.. Doubledouble.(pow x d /.. of_int d) 
+                     else at -.. Doubledouble.(pow x d /.. of_int d)
     in
     if Doubledouble.to_float t > Doubledouble.k_eps
-    then aux ~t:(t *.. x2)  ~at 
+    then aux ~t:(t *.. x2)  ~at
         ~d:(d + 2) ~sign:(not sign)
     else at
   in
