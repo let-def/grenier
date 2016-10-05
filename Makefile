@@ -1,6 +1,6 @@
 
-SUB = hll jmphash pcg orderme doubledouble physh baltree trope
-SUB_TEST = hll orderme doubledouble trope
+SUB = hll jmphash pcg orderme doubledouble physh baltree trope binpacking
+SUB_TEST = hll orderme doubledouble trope binpacking
 
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
@@ -73,6 +73,12 @@ LIBINSTALL_FILES =              \
 	baltree/baltree.a             \
 	baltree/baltree.cma           \
 	baltree/baltree.cmxa          \
+	binpacking/maxrects.mli       \
+	binpacking/maxrects.cmi       \
+	binpacking/maxrects.cmx       \
+	binpacking/binpacking.a       \
+	binpacking/binpacking.cma     \
+	binpacking/binpacking.cmxa    \
 	trope/trope.mli               \
 	trope/trope.cmi               \
 	trope/trope.cmx               \

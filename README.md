@@ -39,6 +39,15 @@ Erik D. Demaine, Martín Farach-Colton, and Jack Zito..
 A managed implementation provide finer integration with OCaml GC to collect
 items that are no longer reachable via the public API.
 
+## binpacking : Maxrects rectangle packing implementation
+
+An implementation of Maxrects packing algorithm in 2D.  This algorithm try to
+pack a maximum number of 2d boxes inside a 2d rectangle. 
+
+See [Even More Rectangle Bin Packing](http://clb.demon.fi/projects/even-more-rectangle-bin-packing)
+
+Useful for generating spritesheets, texture atlases, etc.
+
 ## doubledouble : Floating points with around 107-bits precision 
 
 An implementation of [double-double arithmetic](https://en.wikipedia.org/wiki/Quadruple-precision_floating-point_format#Double-double_arithmetic).
