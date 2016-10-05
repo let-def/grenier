@@ -1,8 +1,11 @@
 #load "binpacking.cma";;
 
 let assertf b fmt =
-  if b
-  then Printf.ifprintf () fmt
+  if b then
+    (* Can be made more efficient with OCaml >= 4.03, but 4.02 has
+       a too restrictive ikfprintf.
+       Performance doesn't matter anyway. *)
+    Printf.ksprintf ignore fmt
   else Printf.ksprintf failwith fmt
 ;;
 
