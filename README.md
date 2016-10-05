@@ -1,6 +1,8 @@
 # grenier
 
-A collection of misc algorithms in OCaml.
+A collection of various algorithms in OCaml.
+
+Licensed under ISC license.
 
 ## baltree : Generic balanced-tree
   

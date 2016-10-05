@@ -5,11 +5,10 @@ maintainer: "Frederic Bour <frederic.bour@lakaban.net>"
 authors: "Frederic Bour <frederic.bour@lakaban.net>"
 homepage: "https://github.com/let-def/grenier"
 bug-reports: "https://github.com/let-def/grenier"
-license: "CC0"
+license: "ISC"
 dev-repo: "https://github.com/let-def/grenier.git"
-build: [
-  [make]
-]
+build: [make]
+build-test: [make "test"]
 install: [make "install"]
 remove: ["ocamlfind" "remove" "grenier"]
 depends: [
