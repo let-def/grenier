@@ -6,9 +6,9 @@ all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
 
 doc::
-	rm -rf doc;
-	mkdir doc
+	mkdir -p doc
 	for i in $(SUB); do \
+			rm -rf doc/$$i; \
 			$(MAKE) -C $$i htdoc; \
 	 		mv $$i/doc/$$i doc/; \
 	 		mv doc/$$i/html doc/$$i/doc; \
