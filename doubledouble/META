@@ -1,5 +1,0 @@
-description = "High precision floating point arithmetic"
-version     = "0.0.1"
-
-archive(byte)   = "doubledouble.cmo"
-archive(native) = "doubledouble.cmx"
