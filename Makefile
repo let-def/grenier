@@ -1,6 +1,6 @@
 
-SUB = hll jmphash pcg orderme doubledouble physh baltree trope binpacking distwit
-SUB_TEST = hll orderme doubledouble trope binpacking distwit
+SUB = hll jmphash pcg orderme doubledouble physh baltree trope binpacking
+SUB_TEST = hll orderme doubledouble trope binpacking
 
 all::
 	for i in $(SUB); do $(MAKE) -C $$i $@; done
@@ -89,14 +89,7 @@ LIBINSTALL_FILES =              \
 	trope/trope.cmx               \
 	trope/trope.a   	          	\
 	trope/trope.cma 	          	\
-	trope/trope.cmxa							\
-	distwit/distwit.mli           \
-	distwit/distwit.cmi           \
-	distwit/distwit.cmx           \
-	distwit/distwit.a   	        \
-	distwit/distwit.cma 	        \
-	distwit/distwit.cmxa
-
+	trope/trope.cmxa
 
 -include OCamlMakefile
 
