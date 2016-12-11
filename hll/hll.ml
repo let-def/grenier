@@ -1,20 +1,11 @@
 let sqr x = x *. x
 
 type t = {
-  alpha : float;
-  p     : int;
-  m     : int;
-  ms    : bytes;
+  p  : int;
+  ms : bytes;
 }
 
 (** Building a new hll *)
-
-let get_alpha = function
-  | p when not (4 <= p && p <= 16) -> assert false
-  | 4 -> 0.673
-  | 5 -> 0.697
-  | 6 -> 0.709
-  | p -> 0.7213 /. (1.0 +. 1.079 /. float_of_int (1 lsl p))
 
 let estimate_memory ~error =
   let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
@@ -24,7 +15,7 @@ let make ~error =
   assert (0. < error && error < 1.);
   let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
   let m = 1 lsl p in
-  { p; m; alpha = get_alpha p; ms = Bytes.make m '\000'}
+  { p; ms = Bytes.make m '\000'}
 
 let clear {ms} =
   Bytes.fill ms 0 (Bytes.length ms) '\000'
@@ -50,6 +41,7 @@ let get_rho w =
   else 1 + first_setbit w
 
 let add {p;m;ms} x =
+  let m = 1 lsl p in
   let j = Int64.to_int x land (m - 1) in
   let w = Int64.shift_right_logical x p in
   Bytes.set ms j (Char.chr (max (Char.code (Bytes.get ms j)) (get_rho w)))
@@ -58,8 +50,8 @@ let add {p;m;ms} x =
 
 let copy t = {t with ms = Bytes.copy t.ms}
 
-let merge ~into:{ms; m} {ms = ms'; m = m'} =
-  if m' <> m then
+let merge ~into:{ms; p} {ms = ms'; p = p'} =
+  if p' <> p then
     invalid_arg "update: counters precision should be equal";
   for i = 0 to Bytes.length ms - 1 do
     Bytes.set ms i (max (Bytes.get ms i) (Bytes.get ms' i))
@@ -83,26 +75,35 @@ let estimate_bias e p =
   done;
   !sum /. float_of_int (Array.length nearest_neighbors)
 
-let ep {alpha;p;m;ms}  =
+let get_alpha = function
+  | p when not (4 <= p && p <= 16) -> assert false
+  | 4 -> 0.673
+  | 5 -> 0.697
+  | 6 -> 0.709
+  | p -> 0.7213 /. (1.0 +. 1.079 /. float_of_int (1 lsl p))
+
+let ep {p;m;ms}  =
   let sum = ref 0. in
+  let m = 1 lsl p in
   for i = 0 to m - 1 do
     sum := !sum +. 2. ** float_of_int (- Char.code (Bytes.get ms i))
   done;
-  let e = alpha *. sqr (float_of_int m) /. !sum in
+  let e = get_alpha p *. sqr (float_of_int m) /. !sum in
   if e <= 5. *. float_of_int m then
     e -. estimate_bias e p
   else
     e
 
 let card t =
+  let m = 1 lsl t.p in
   let nulls = ref 0 in
-  for i = 0 to t.m -1 do
+  for i = 0 to m -1 do
     if Bytes.get t.ms i = '\000' then
       incr nulls
   done;
   let nulls = !nulls in
   if nulls > 0 then
-    let m = float_of_int t.m in
+    let m = float m in
     let h = m *. log (m /. float_of_int nulls) in
     if h <= get_threshold t.p then
       h
