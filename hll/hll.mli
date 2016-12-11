@@ -26,22 +26,18 @@ val add   : t -> int64 -> unit
 (** Estimate the memory consumed in bytes by a counter with the specified error
     rate.
 
-    This ignores the constant overhead of the OCaml representation, around
-    height words:
-
-    - one record, one header + four fields = 5 words
-    - one float,  one header + payload = 2 or 3 words
-    - one string, one header + estimated size
+    This ignores the constant overhead of the OCaml representation, around two
+    words.  It is a [bytes] of [estimate_memory ~error + 1] length.
 *)
 val estimate_memory : error:float -> int
 
 (* All remaining functions are O(estimate_memory ~error) *)
 
 (** Get the cardinality estimation. *)
-val card  : t -> float
+val card : t -> float
 
 (** Get a copy of a counter. *)
-val copy  : t -> t
+val copy : t -> t
 
 (** [merge ~into:t0 t'] has the same effect as adding all items added to
     [t'] to [t0].
@@ -56,3 +52,18 @@ val clear : t -> unit
 (** The following algorithm provide a reasonable hashing function for integers,
     if you want to feed the HLL with "normal" integers.  *)
 val hash_int64 : int64 -> int64
+
+(** {0 Serialization} *)
+
+(** Returns a string with the current state stored. *)
+val to_string : t -> string
+
+(** Restore a HLL saved with [to_string].
+
+    [of_string (to_string t)] is functionnally equivalent to [copy t],
+    except a bit more expensive.
+
+    It can raise [Invalid_argument] if the string provided was not saved by
+    [to_string].
+*)
+val of_string : string -> t

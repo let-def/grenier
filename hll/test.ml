@@ -8,6 +8,7 @@ let run_test error seed count =
     Hll.add hll (Hll.hash_int64 (Int64.(add seed (of_int i))))
   done;
   let card = Hll.card hll in
+  assert (card = Hll.card (Hll.of_string (Hll.to_string hll)));
   let m1 = max card (float count) and m2 = min card (float count) in
   Printf.printf "estimated cardinal: %.02f (error: %.02f%%)\n"
     card ((m1 -. m2) /. m2 *. 100.0)

@@ -1,27 +1,5 @@
 let sqr x = x *. x
 
-type t = {
-  p  : int;
-  ms : bytes;
-}
-
-(** Building a new hll *)
-
-let estimate_memory ~error =
-  let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
-  (1 lsl p)
-
-let make ~error =
-  assert (0. < error && error < 1.);
-  let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
-  let m = 1 lsl p in
-  { p; ms = Bytes.make m '\000'}
-
-let clear {ms} =
-  Bytes.fill ms 0 (Bytes.length ms) '\000'
-
-(** Adding an element to the hll *)
-
 let first_setbit n =
   (* Reverse mapping of B(2,6)
      See http://chessprogramming.wikispaces.com/De+Bruijn+sequence *)
@@ -35,27 +13,56 @@ let first_setbit n =
   let n = Int64.shift_right_logical n 58 in
   Char.code db26.[Int64.to_int n]
 
+type t = bytes
+
+(** Building a new hll *)
+
+let validate t = (1 lsl Char.code (Bytes.get t 0) + 1 = Bytes.length t)
+
+let estimate_memory ~error =
+  let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
+  (1 lsl p)
+
+let make ~error =
+  assert (0. < error && error < 1.);
+  let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
+  let t = Bytes.make (1 lsl p + 1) '\000' in
+  Bytes.set t 0 (Char.chr p);
+  assert (validate t);
+  t
+
+let clear t =
+  Bytes.fill t 1 (Bytes.length t - 1) '\000';
+  assert (validate t)
+
+(** Adding an element to the hll *)
+
 let get_rho w =
   if w = 0L then
     64
   else 1 + first_setbit w
 
-let add {p;m;ms} x =
+let add t x =
+  let p = Char.code (Bytes.get t 0) in
   let m = 1 lsl p in
-  let j = Int64.to_int x land (m - 1) in
+  let j = Int64.to_int x land (m - 1) + 1 in
   let w = Int64.shift_right_logical x p in
-  Bytes.set ms j (Char.chr (max (Char.code (Bytes.get ms j)) (get_rho w)))
+  Bytes.set t j (Char.chr (max (Char.code (Bytes.get t j)) (get_rho w)))
+  (* assert (validate t): micro benchmark shows that validating in an add loop
+     has a 10% overhead, not necessary. *)
 
 (** Merging and copying hlls *)
 
-let copy t = {t with ms = Bytes.copy t.ms}
+let copy t = Bytes.copy t
 
-let merge ~into:{ms; p} {ms = ms'; p = p'} =
-  if p' <> p then
+let merge ~into:t t' =
+  let length = Bytes.length t in
+  if length <> Bytes.length t' then
     invalid_arg "update: counters precision should be equal";
-  for i = 0 to Bytes.length ms - 1 do
-    Bytes.set ms i (max (Bytes.get ms i) (Bytes.get ms' i))
-  done
+  for i = 1 to length - 1 do
+    Bytes.set t i (max (Bytes.get t i) (Bytes.get t' i))
+  done;
+  assert (validate t)
 
 (** Estimating cardinality *)
 
@@ -73,39 +80,43 @@ let estimate_bias e p =
   for i = 0 to Array.length nearest_neighbors - 1 do
     sum := !sum +. bias_vector.(nearest_neighbors.(i))
   done;
-  !sum /. float_of_int (Array.length nearest_neighbors)
+  !sum /. float (Array.length nearest_neighbors)
 
 let get_alpha = function
   | p when not (4 <= p && p <= 16) -> assert false
   | 4 -> 0.673
   | 5 -> 0.697
   | 6 -> 0.709
-  | p -> 0.7213 /. (1.0 +. 1.079 /. float_of_int (1 lsl p))
+  | p -> 0.7213 /. (1.0 +. 1.079 /. float (1 lsl p))
 
-let ep {p;m;ms}  =
-  let sum = ref 0. in
+let ep t =
+  let p = Char.code (Bytes.get t 0) in
   let m = 1 lsl p in
-  for i = 0 to m - 1 do
-    sum := !sum +. 2. ** float_of_int (- Char.code (Bytes.get ms i))
+  let sum = ref 0. in
+  for i = 1 to m do
+    sum := !sum +. 2. ** float (- Char.code (Bytes.get t i))
   done;
-  let e = get_alpha p *. sqr (float_of_int m) /. !sum in
-  if e <= 5. *. float_of_int m then
+  let m = float m in
+  let e = get_alpha p *. sqr m /. !sum in
+  if e <= 5. *. m then
     e -. estimate_bias e p
   else
     e
 
 let card t =
-  let m = 1 lsl t.p in
+  assert (validate t);
+  let p = Char.code (Bytes.get t 0) in
+  let m = 1 lsl p in
   let nulls = ref 0 in
-  for i = 0 to m -1 do
-    if Bytes.get t.ms i = '\000' then
+  for i = 1 to m do
+    if Bytes.get t i = '\000' then
       incr nulls
   done;
   let nulls = !nulls in
   if nulls > 0 then
     let m = float m in
-    let h = m *. log (m /. float_of_int nulls) in
-    if h <= get_threshold t.p then
+    let h = m *. log (m /. float nulls) in
+    if h <= get_threshold p then
       h
     else
       ep t
@@ -128,3 +139,16 @@ let hash_int64 key =
 	let key = xor key (key lsr 28) in
 	let key = add key (key lsl 31) in
   key
+
+let to_string t =
+  assert (1 lsl Char.code (String.get t 0) + 1 = String.length t);
+  Bytes.to_string t
+
+let of_string s =
+  let t = Bytes.of_string s in
+  (* t.[0] = 1 lsl length s + 1.
+     Also, it as to be small, so higher bits must be null and could be used to
+     store versioning information in the future. *)
+  if not (validate t) then
+    raise (Invalid_argument "Hll.of_string");
+  t
