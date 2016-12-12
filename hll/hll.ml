@@ -64,7 +64,54 @@ let merge ~into:t t' =
   done;
   assert (validate t)
 
-(** Estimating cardinality *)
+(** Estimating cardinality, HyperLogLog *)
+
+let count_nulls t =
+  let nulls = ref 0 in
+  for i = 1 to String.length t - 1 do
+    if Bytes.get t i = '\000' then
+      incr nulls
+  done;
+  !nulls
+
+let get_alpha = function
+  | p when not (4 <= p && p <= 16) -> assert false
+  | 4 -> 0.673
+  | 5 -> 0.697
+  | 6 -> 0.709
+  | p -> 0.7213 /. (1.0 +. 1.079 /. float (1 lsl p))
+
+let hll_estimation precision t =
+  let p = Char.code (Bytes.get t 0) in
+  let m = 1 lsl p in
+  let sum = ref 0. in
+  for i = 1 to m do
+    sum := !sum +. 2. ** float (- min (precision-p) (Char.code (Bytes.get t i)))
+  done;
+  get_alpha p *. sqr (float m) /. !sum
+
+let linear_counting m nulls =
+  let m = float m and nulls = float nulls in
+  (m *. log (m /. nulls))
+
+let card_hll t =
+  let e = hll_estimation 32 t in
+  let p = Char.code (Bytes.get t 0) in
+  let m = 1 lsl p in
+  if e <= (5.0 /. 2.0) *. float m then (
+    (* Small range *)
+    match count_nulls t with
+    | 0 -> e
+    | nulls -> linear_counting m nulls
+  ) else if e <= (2.0 ** 32.0) /. 30.0 then (
+    (* Normal range *)
+    e
+  ) else (
+    (* Large range *)
+    (-. (2.0 ** 32.0) *. log (1.0 -. e /. (2.0 ** 32.0)))
+  )
+
+(** Estimating cardinality, HyperLogLog++ *)
 
 let get_threshold p = Hll_consts.threshold.(p - 4)
 
@@ -75,53 +122,39 @@ let get_nearest_neighbors e vec =
 
 let estimate_bias e p =
   let bias_vector = Hll_consts.bias_data.(p - 4) in
-  let nearest_neighbors = get_nearest_neighbors e Hll_consts.raw_estimated_data.(p - 4) in
+  let nearest_neighbors =
+    get_nearest_neighbors e Hll_consts.raw_estimated_data.(p - 4) in
   let sum = ref 0. in
   for i = 0 to Array.length nearest_neighbors - 1 do
     sum := !sum +. bias_vector.(nearest_neighbors.(i))
   done;
   !sum /. float (Array.length nearest_neighbors)
 
-let get_alpha = function
-  | p when not (4 <= p && p <= 16) -> assert false
-  | 4 -> 0.673
-  | 5 -> 0.697
-  | 6 -> 0.709
-  | p -> 0.7213 /. (1.0 +. 1.079 /. float (1 lsl p))
-
 let ep t =
   let p = Char.code (Bytes.get t 0) in
-  let m = 1 lsl p in
-  let sum = ref 0. in
-  for i = 1 to m do
-    sum := !sum +. 2. ** float (- Char.code (Bytes.get t i))
-  done;
-  let m = float m in
-  let e = get_alpha p *. sqr m /. !sum in
+  let m = float (1 lsl p) in
+  let e = hll_estimation 64 t in
   if e <= 5. *. m then
     e -. estimate_bias e p
   else
     e
 
-let card t =
+let card_hllpp t =
   assert (validate t);
   let p = Char.code (Bytes.get t 0) in
-  let m = 1 lsl p in
-  let nulls = ref 0 in
-  for i = 1 to m do
-    if Bytes.get t i = '\000' then
-      incr nulls
-  done;
-  let nulls = !nulls in
-  if nulls > 0 then
-    let m = float m in
-    let h = m *. log (m /. float nulls) in
+  let m = (1 lsl p) in
+  match count_nulls t with
+  | 0 -> ep t
+  | nulls ->
+    let h = linear_counting m nulls in
     if h <= get_threshold p then
       h
     else
       ep t
-  else
-    ep t
+
+let card = card_hllpp
+
+(* Thomas Wang 64-bit integer hashing *)
 
 let hash_int64 key =
   let open Int64 in
@@ -129,8 +162,6 @@ let hash_int64 key =
   let (lsl) = shift_left in
   let not = lognot in
   let xor = logxor in
-
-  (* Thomas Wang 64-bit integer hashing *)
   let key = add (not key) (key lsl 21) in
 	let key = xor key (key lsr 24) in
 	let key = add (add key (key lsl 3)) (key lsl 8) in

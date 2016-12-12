@@ -33,8 +33,14 @@ val estimate_memory : error:float -> int
 
 (* All remaining functions are O(estimate_memory ~error) *)
 
-(** Get the cardinality estimation. *)
+(** Get the cardinality estimation. Defaults to HyperLogLog++. *)
 val card : t -> float
+
+(* For benchmarking purpose, estimate cardinality with original HyperLogLog. *)
+val card_hll : t -> float
+
+(* Estimate cardinality with HyperLogLog++ (less biased). *)
+val card_hllpp : t -> float
 
 (** Get a copy of a counter. *)
 val copy : t -> t
