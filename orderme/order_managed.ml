@@ -1,6 +1,6 @@
 type t = {
   t : Order_list.t;
-  (* This strange dance with protect is too prevent the GC from collecting
+  (* This strange dance with protect is to prevent the GC from collecting
      values in the middle of an operation. *)
   mutable protect: int;
 }
