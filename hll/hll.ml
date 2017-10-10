@@ -68,7 +68,7 @@ let merge ~into:t t' =
 
 let count_nulls t =
   let nulls = ref 0 in
-  for i = 1 to String.length t - 1 do
+  for i = 1 to Bytes.length t - 1 do
     if Bytes.get t i = '\000' then
       incr nulls
   done;
@@ -172,7 +172,7 @@ let hash_int64 key =
   key
 
 let to_string t =
-  assert (1 lsl Char.code (String.get t 0) + 1 = String.length t);
+  assert (1 lsl Char.code (Bytes.get t 0) + 1 = Bytes.length t);
   Bytes.to_string t
 
 let of_string s =
