@@ -65,3 +65,10 @@ package "binpacking" (
   archive(native) = "binpacking.cmxa"
 )
 
+package "valmari" (
+  version = "0.1"
+  description = "DFA minimization"
+  archive(byte) = "valmari.cma"
+  archive(native) = "valmari.cmxa"
+)
+

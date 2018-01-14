@@ -87,6 +87,14 @@ Can be used to experiment and learn about the GC but do expect bugs and don't
 expect any kind of compatibility with future OCaml versions.
 (Would be nice to have proper upstream support for such feature though!)
 
+## valmari : Valmari's DFA minimization algorithm
+
+An implementation of the algorithm desribed in [Fast brief practical DFA
+minimization](https://dl.acm.org/citation.cfm?id=2109576) by Valmari et al.
+
+The tests and some fixes come from
+[WalkerCodeRanger/dfaMinimizationComparison](https://github.com/WalkerCodeRanger/dfaMinimizationComparison), thanks!
+
 ## pcg : PCG random generator
 
 Playing with [PCG generators](http://www.pcg-random.org/) in OCaml.
