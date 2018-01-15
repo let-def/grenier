@@ -48,8 +48,8 @@ let create (type a) ?partition ((module N) : a Finite.set) =
           t.first.(!set_count) <- i;
           part := elt
         );
-        t.set_of.((elt :> int)) <- !set_count;
-        t.location.((elt :> int)) <- i
+        t.set_of.((elt : N.element :> int)) <- !set_count;
+        t.location.((elt : N.element :> int)) <- i
       done;
       t.past.(!set_count) <- n;
       t.set_count <- !set_count + 1;

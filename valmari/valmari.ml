@@ -11,7 +11,7 @@ module type DFA = sig
   module Final : Finite.Map with type codomain = States.element
 end
 
-let index_transitions (type state transition)
+let index_transitions (type state) (type transition)
     (states : state Finite.set)
     (transitions : transition Finite.set)
     (target : transition Finite.element -> state Finite.element)
@@ -45,7 +45,7 @@ let index_transitions (type state transition)
      end))
 
 let discard_unreachable
-    (type state transition)
+    (type state) (type transition)
     (states : state Finite.set)
     (transitions : transition Finite.set)
     (blocks : state Partition.t)
