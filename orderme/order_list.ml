@@ -57,7 +57,7 @@ let root () =
 
 let forget t =
   if is_valid t then begin
-    let {prev; next; counter} = t in
+    let {prev; next; counter; _} = t in
     if is_first t then
       next.prev <- next
     else if is_last t then
@@ -163,7 +163,7 @@ let after t =
      linked list (e.g if used through Order_managed).
   *)
   let t' = {prev = t; next = t; tag; counter = t.counter} in
-  let {next; counter} = t in
+  let {next; counter; _} = t in
   if t == next then
     t'.next <- t'
   else (
@@ -187,7 +187,7 @@ let before t =
      linked list (e.g if used through Order_managed).
   *)
   let t' = {prev = t; next = t; tag; counter = t.counter} in
-  let {prev; counter} = t in
+  let {prev; counter; _} = t in
   if t == prev then
     t'.prev <- t'
   else (

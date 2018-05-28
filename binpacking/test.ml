@@ -1,5 +1,3 @@
-#load "binpacking.cma";;
-
 let assertf b fmt =
   if b then
     (* Can be made more efficient with OCaml >= 4.03, but 4.02 has

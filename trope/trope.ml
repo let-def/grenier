@@ -405,7 +405,7 @@ let insert_after t c len =
     in
     fst (update t aux)
 
-let put_before t c0 value =
+let _put_before t c0 value =
   validate t c0 "Trope.put_before: cursor not in buffer";
   let aux t =
     let c = O.before c0 in
@@ -426,7 +426,7 @@ let put_before t c0 value =
   in
   update t aux
 
-let put_after t c0 value =
+let _put_after t c0 value =
   validate t c0 "Trope.put_after: cursor not in buffer";
   let aux t =
     let c = O.after c0 in

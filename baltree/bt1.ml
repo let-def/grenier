@@ -25,7 +25,7 @@ let disbalanced smin smax = smaller_ell smin (smax lsr 1)
 (** {1 Smart but not too much constructors} *)
 
 (** Construct node and check balance *)
-let node_ l x r =
+let _node_ l x r =
   let sl = size l and sr = size r in
   if sl < sr then
     assert (not (disbalanced sl sr))

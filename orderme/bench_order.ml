@@ -5,7 +5,7 @@ let t () = (Unix.times()).Unix.tms_utime
 let once name (module M : S) count =
   let bench () =
     let r = ref (M.root()) in
-    for i = 1 to count do
+    for _ = 1 to count do
       r := M.after !r;
     done
   in

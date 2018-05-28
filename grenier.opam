@@ -1,17 +1,15 @@
 opam-version: "1.2"
-name: "grenier"
-version: "0.6"
 maintainer: "Frederic Bour <frederic.bour@lakaban.net>"
 authors: "Frederic Bour <frederic.bour@lakaban.net>"
 homepage: "https://github.com/let-def/grenier"
 bug-reports: "https://github.com/let-def/grenier"
 license: "ISC"
 dev-repo: "https://github.com/let-def/grenier.git"
-build: [make]
-build-test: [make "test"]
-install: [make "install"]
-remove: ["ocamlfind" "remove" "grenier"]
+build: [
+  ["jbuilder" "subst" "-n" name] {pinned}
+  ["jbuilder" "build" "-p" name "-j" jobs]
+]
 depends: [
-  "ocamlfind" {build}
+  "jbuilder" {build}
 ]
 available: [ ocaml-version >= "4.02" ]

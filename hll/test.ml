@@ -1,5 +1,3 @@
-#load "hll.cma";;
-
 let run_test error seed count =
   let hll = Hll.make ~error in
   Printf.printf "counting %d elements using HLL with %.02f%% error rate (seed = %Ld)\n"

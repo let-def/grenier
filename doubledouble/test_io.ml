@@ -1,4 +1,3 @@
-#load "doubledouble.cma";;
 (**
 Copyright (c) 2013, Frédéric Bour <frederic.bour (at) lakaban.net>
 All rights reserved.
