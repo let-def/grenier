@@ -1,0 +1,37 @@
+(library
+ ((name grenier_doubledouble)
+  (public_name grenier.doubledouble)
+  (wrapped false)
+  (modules (doubledouble))
+  (synopsis
+   "High precision floating point arithmetic (around 106 bits)")))
+
+(executable
+ ((name test_basic)
+  (modules (test_basic))
+  (libraries (grenier_doubledouble))))
+
+(alias
+ ((name runtest)
+  (deps (./test_basic.exe))
+  (action (run ${<}))))
+
+(executable
+ ((name test_compute)
+  (modules (test_compute))
+  (libraries (grenier_doubledouble))))
+
+(alias
+ ((name runtest)
+  (deps (./test_compute.exe))
+  (action (run ${<}))))
+
+(executable
+ ((name test_io)
+  (modules (test_io))
+  (libraries (grenier_doubledouble))))
+
+(alias
+ ((name runtest)
+  (deps (./test_io.exe))
+  (action (run ${<}))))

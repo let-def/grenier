@@ -1,0 +1,16 @@
+(library
+ ((name grenier_orderme)
+  (public_name grenier.orderme)
+  (wrapped false)
+  (modules (:standard \ test_order bench_order))
+  (synopsis "Solution to Order-Maintenance and List-labeling problems")))
+
+(executable
+ ((name test_order)
+  (modules (test_order))
+  (libraries (grenier_orderme unix))))
+
+(alias
+ ((name runtest)
+  (deps (test_order.exe))
+  (action (run ${<}))))

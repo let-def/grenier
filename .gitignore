@@ -1,16 +1,3 @@
-*.annot
-*.cmo
-*.cma
-*.cmi
-*.a
-*.o
-*.cmx
-*.cmxs
-*.cmxa
-*.so
-
-# OCamlMakefile
-*/OCamlMakefile
-._bcdi
-._d
-._ncdi
+_build
+.merlin
+*.install

@@ -1,0 +1,21 @@
+(executable
+ ((name test)
+  (libraries (valmari))))
+
+(rule
+ ((deps (Lex.dfa))
+  (targets (Lex.expected))
+  (action (with-stdout-to ${@} (run ./test.exe ${<})))))
+
+(rule
+ ((deps (Sample.dfa))
+  (targets (Sample.expected))
+  (action (with-stdout-to ${@} (run ./test.exe ${<})))))
+
+(alias
+ ((name runtest)
+  (action (diff Lex.expected Lex.reference))))
+
+(alias
+ ((name runtest)
+  (action (diff Sample.expected Sample.reference))))

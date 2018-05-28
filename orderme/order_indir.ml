@@ -149,7 +149,7 @@ let after t =
   let tag1 = t.tag in
   let tag2 = if is_local_last t then max_int else t.next.tag in
   let tag = average tag1 tag2 in
-  let {next; repr; order} = t in
+  let {next; repr; order; _} = t in
   let t' = {repr; tag; order; prev = t; next} in
   if is_global_last t then
     t'.next <- t'
@@ -166,7 +166,7 @@ let before t =
   let tag1 = if is_local_first t then min_int else t.prev.tag in
   let tag2 = t.tag in
   let tag = average tag1 tag2 in
-  let {prev; repr; order} = t in
+  let {prev; repr; order; _} = t in
   let t' = {repr; tag; order; prev; next = t} in
   if is_global_first t then
     t'.prev <- t'
@@ -185,7 +185,7 @@ let forget t =
     if is_local_first t && is_local_last t then
       Order_list.forget t.repr;
     (* Update linked list *)
-    let {next; prev} = t in
+    let {next; prev; _} = t in
     if is_global_first t then
       next.prev <- next
     else

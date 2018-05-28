@@ -1,0 +1,6 @@
+(library
+ ((name physh)
+  (public_name grenier.physh)
+  (wrapped false)
+  (c_names (ml_physh_map ml_physh_set))
+  (synopsis "Physical hashtable and hashset")))
