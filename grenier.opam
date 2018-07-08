@@ -5,6 +5,7 @@ homepage: "https://github.com/let-def/grenier"
 bug-reports: "https://github.com/let-def/grenier"
 license: "ISC"
 dev-repo: "https://github.com/let-def/grenier.git"
+doc: "https://let-def.github.io/grenier/doc"
 build: [
   ["jbuilder" "subst" "-n" name] {pinned}
   ["jbuilder" "build" "-p" name "-j" jobs]
