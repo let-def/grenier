@@ -1,6 +1,4 @@
-# grenier
-
-A collection of various algorithms in OCaml.
+# grenier — A collection of various algorithms in OCaml.
 
 Licensed under ISC license.
 
