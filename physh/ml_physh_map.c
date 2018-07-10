@@ -194,9 +194,9 @@ static void flush_minor (value t, value null)
   /* promote minor to major */
   if (t_minor_fill(t) > 0)
   {
-    size_t fill = 0;
+    size_t fill = 0, i;
 
-    for (size_t i = 0; i < sz; ++i)
+    for (i = 0; i < sz; ++i)
     {
       value k = Field(minor, i * 2);
       if (k == null) continue;
@@ -232,18 +232,18 @@ static void rehash_minor (value t, value null, size_t new_sz)
 
   CAMLlocal2(minor_old, minor_new);
   minor_old = t_minor_get(t);
-  size_t sz = t_minor_size(t);
+  size_t sz = t_minor_size(t), i;
 
   /* rehash minor */
 
   minor_new = caml_alloc_small(new_sz * 2, 0);
 
-  for (size_t i = 0; i < new_sz * 2; ++i)
+  for (i = 0; i < new_sz * 2; ++i)
     Store_field(minor_new, i, null);
 
   size_t fill = 0;
 
-  for (size_t i = 0; i < sz; ++i)
+  for (i = 0; i < sz; ++i)
   {
     value k = Field(minor_old, i * 2);
     if (k == null) continue;
@@ -272,18 +272,18 @@ static void rehash_major (value t, value null, size_t new_sz)
 
   CAMLlocal2(major_old, major_new);
   major_old = t_major_get(t);
-  size_t sz = t_major_size(t);
+  size_t sz = t_major_size(t), i;
 
   /* rehash major */
 
   major_new = caml_alloc(new_sz * 2, 0);
 
-  for (size_t i = 0; i < new_sz * 2; ++i)
+  for (i = 0; i < new_sz * 2; ++i)
     Store_field(major_new, i, null);
 
   size_t fill = 0;
 
-  for (size_t i = 0; i < sz; ++i)
+  for (i = 0; i < sz; ++i)
   {
     value k = Field(major_old, i * 2);
     if (k == null) continue;
