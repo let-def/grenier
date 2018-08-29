@@ -89,15 +89,17 @@ let once ?gc ?check ~pass state name (module M : S) =
   let t0 = t () in
   M.test ?gc ?check name pass;
   let dt = t () -. t0 in
-  Printf.eprintf "%s check time: %.02f\n" name dt
+  Printf.printf "%s check time: %.02f\n" name dt
 
 let () =
   let () = Random.self_init () in
   let state = Random.get_state () in
   let pass = try int_of_string (Sys.argv.(1)) with _ -> 80 in
-  once state "Order_indir"   (module Order_indir)   ~pass ~check:true  ~gc:false;
-  once state "Order_list"    (module Order_list)    ~pass ~check:true  ~gc:false;
-  once state "Order_managed" (module Order_managed) ~pass ~check:true  ~gc:true;
-  once state "Order_indir"   (module Order_indir)   ~pass ~check:false ~gc:false;
+  (*once state "Order_list"    (module Order_list)    ~pass ~check:true  ~gc:false;
+    once state "Order_managed_list" (module Order_managed) ~pass ~check:true  ~gc:true;
+    once state "Order_indir"   (module Order_indir)   ~pass ~check:true  ~gc:false;
+    once state "Order_managed_indir"   (module Order_managed_indir)   ~pass ~check:true  ~gc:true;*)
   once state "Order_list"    (module Order_list)    ~pass ~check:false ~gc:false;
-  once state "Order_managed" (module Order_managed) ~pass ~check:false ~gc:true
+  once state "Order_managed_list" (module Order_managed) ~pass ~check:false ~gc:true;
+  once state "Order_indir"   (module Order_indir)   ~pass ~check:false ~gc:false;
+  once state "Order_managed_indir"   (module Order_managed_indir)  ~pass ~check:false  ~gc:true;

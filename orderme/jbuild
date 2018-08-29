@@ -2,12 +2,17 @@
  ((name grenier_orderme)
   (public_name grenier.orderme)
   (wrapped false)
-  (modules (:standard \ test_order bench_order))
+  (modules (:standard \ test_order test_interval bench_order))
   (synopsis "Solution to Order-Maintenance and List-labeling problems")))
 
 (executable
  ((name test_order)
   (modules (test_order))
+  (libraries (grenier_orderme unix))))
+
+(executable
+ ((name test_interval)
+  (modules (test_interval))
   (libraries (grenier_orderme unix))))
 
 (alias

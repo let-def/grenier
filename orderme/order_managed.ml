@@ -1,11 +1,12 @@
+open Order_list
+type order = t
+
 type t = {
-  t : Order_list.t;
+  t : order;
   (* This strange dance with protect is to prevent the GC from collecting
      values in the middle of an operation. *)
   mutable protect: int;
 }
-
-open Order_list
 
 let lock1 t =
   t.protect <- t.protect + 1
