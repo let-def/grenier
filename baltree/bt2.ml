@@ -48,7 +48,6 @@ let rot_right l y0 y1 r k = match l with
   | _ -> assert false
 
 (** Balancing *)
-let smaller_ell a b = (a < b) && ((a land b) lsl 1 < b)
 
 let inc_left l x0 x1 r k =
   let r = match r with

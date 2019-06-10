@@ -63,7 +63,6 @@ module Make(M : MEASURE) = struct
     | _ -> assert false
 
   (** Balancing *)
-  let smaller_ell a b = (a < b) && ((a land b) lsl 1 < b)
 
   let inc_left l x r k =
     let r = match r with
