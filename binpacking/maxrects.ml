@@ -29,17 +29,10 @@ type ('bin, 'tag) rect =
   }
 
 type heuristic =
-  [ (** BSSF. Positions the rectangle against the short side of a free
-        rectangle into which it fits the best. *)
-    `Short_side_fit
-  | (** BLSF: Positions the rectangle against the long side of a free rectangle
-        into which it fits the best. *)
-    `Long_side_fit
-  | (** BAF: Positions the rectangle into the smallest free rect into which it
-        fits. *)
-    `Area_fit
-  | (** BL: Does the Tetris placement. *)
-    `Bottom_left
+  [ `Short_side_fit
+  | `Long_side_fit
+  | `Area_fit
+  | `Bottom_left
   ]
 
 let empty = { free = [] }
@@ -60,7 +53,7 @@ let score_heuristic = function
       let dw = rect.bin_w - w and dh = rect.bin_h - h in
       { hi = max dw dh; lo = min dw dh }
   | `Bottom_left ->
-    fun rect w h ->
+    fun rect _w h ->
       { hi = rect.bin_y + h; lo = rect.bin_x }
   | `Area_fit ->
     fun rect w h ->
@@ -213,7 +206,7 @@ let used_rect bin box rotated =
 let update_free bin used {free} =
   { free = prune_free_list (split_free_node bin used free) }
 
-let insert t ?(heuristic=`Short_side_fit) ({ width = w; height = h } as box) =
+let insert t ?(heuristic=`Short_side_fit) ({ width = w; height = h; _ } as box) =
   match t.free with
   | [] -> t, None
   | default_bin :: _ ->
@@ -240,7 +233,7 @@ let insert_global t ?(heuristic=`Short_side_fit) boxes =
     let result = Array.make (Pop_array.length boxes) None in
     let score_fun = score_heuristic heuristic in
     let t = ref t in
-    let select_candidate i (_,{allow_rotation; width=w; height=h}) acc =
+    let select_candidate i (_,{ allow_rotation; width=w; height=h; _ }) acc =
       let free = (!t).free in
       let acc = List.fold_left (select_best score_fun (i,false) w h) acc free in
       if allow_rotation && w <> h then

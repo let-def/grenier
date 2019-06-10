@@ -1,5 +1,0 @@
-(library
- ((name grenier_pcg)
-  (public_name grenier.pcg)
-  (wrapped false)
-  (synopsis "PCG random generator in OCaml")))

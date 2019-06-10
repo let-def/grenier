@@ -46,8 +46,6 @@ let index_transitions (type state) (type transition)
 
 let discard_unreachable
     (type state) (type transition)
-    (states : state Finite.set)
-    (transitions : transition Finite.set)
     (blocks : state Partition.t)
     (transitions_of : state Finite.element -> transition Finite.element Finite.map)
     (target : transition Finite.element -> state Finite.element)
@@ -81,8 +79,7 @@ end = struct
     let transitions_source =
       index_transitions (module DFA.States) (module DFA.Transitions) DFA.source
     in
-    discard_unreachable (module DFA.States) (module DFA.Transitions)
-      blocks transitions_source DFA.target
+    discard_unreachable blocks transitions_source DFA.target
 
   (* Index the set of transitions targeting a state *)
   let transitions_targeting =
@@ -91,8 +88,7 @@ end = struct
   (* Remove states unreachable from final states *)
   let () =
     Finite.iter_map (module DFA.Final) (Partition.mark blocks);
-    discard_unreachable (module DFA.States) (module DFA.Transitions)
-      blocks transitions_targeting DFA.source
+    discard_unreachable blocks transitions_targeting DFA.source
 
   (* Split final states *)
   let () =
@@ -139,10 +135,6 @@ end = struct
   let transport_state_unsafe state =
     Finite.Element.of_int
       (module States) (Partition.set_of blocks state)
-
-  let transport_transition_unsafe transition =
-    Finite.Element.of_int
-      (module Transitions) (Partition.set_of cords transition)
 
   let represent_state state =
     Partition.choose blocks

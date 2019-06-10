@@ -1,5 +1,0 @@
-(library
- ((name grenier_jmphash)
-  (public_name grenier.jmphash)
-  (wrapped false)
-  (synopsis "Jump Consistent Hashing in OCaml")))

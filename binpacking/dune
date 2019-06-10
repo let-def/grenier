@@ -1,0 +1,16 @@
+(library
+ (name grenier_binpacking)
+ (public_name grenier.binpacking)
+ (wrapped false)
+ (modules (:standard \ test))
+ (synopsis "Binpacking in 2d"))
+
+(executable
+ (name test)
+ (modules test)
+ (libraries grenier_binpacking))
+
+(alias
+ (name runtest)
+ (deps ./test.exe)
+ (action (run %{deps})))

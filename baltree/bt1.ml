@@ -48,8 +48,6 @@ let rot_right l y r k = match l with
   | _ -> assert false
 
 (** Balancing *)
-let smaller_ell a b = (a < b) && ((a land b) lsl 1 < b)
-
 let inc_left l x r k =
   let r = match r with
     | Node (_, rl, y, rr) when smaller_ell (size rr) (size rl) ->

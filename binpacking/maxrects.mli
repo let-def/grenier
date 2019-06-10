@@ -27,17 +27,17 @@ type ('bin, 'tag) rect =
   }
 
 type heuristic =
-  [ (** BSSF. Positions the rectangle against the short side of a free
+  [ `Short_side_fit
+    (** BSSF. Positions the rectangle against the short side of a free
         rectangle into which it fits the best. *)
-    `Short_side_fit
-  | (** BLSF: Positions the rectangle against the long side of a free rectangle
+  | `Long_side_fit
+    (** BLSF: Positions the rectangle against the long side of a free rectangle
         into which it fits the best. *)
-    `Long_side_fit
-  | (** BAF: Positions the rectangle into the smallest free rect into which it
+  | `Area_fit
+    (** BAF: Positions the rectangle into the smallest free rect into which it
         fits. *)
-    `Area_fit
-  | (** BL: Does the Tetris placement. *)
-    `Bottom_left
+  | `Bottom_left
+    (** BL: Does the Tetris placement. *)
   ]
 
 (** Online insertion of one item.

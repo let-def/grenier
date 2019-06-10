@@ -1,0 +1,16 @@
+(library
+ (name grenier_hll)
+ (public_name grenier.hll)
+ (wrapped false)
+ (modules (:standard \ test))
+ (synopsis "HyperLogLog in OCaml"))
+
+(executable
+ (name test)
+ (modules test)
+ (libraries grenier_hll))
+
+(alias
+ (name runtest)
+ (deps test.exe)
+ (action (run %{deps})))

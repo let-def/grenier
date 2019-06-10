@@ -194,7 +194,7 @@ let sqr t = mul t t
 let sqrt = function
   | {hi = 0.; lo = 0.}   -> zero
   | t when is_negative t -> nan
-  | {hi; lo} as t ->
+  | {hi; _} as t ->
     let x  = 1. /. sqrt hi      in
     let ax = of_float (hi *. x) in
     let d  = sub t (sqr ax)     in
@@ -358,7 +358,9 @@ let of_string s =
       num_digits, get_point num_digits pos_point, exp, t
     | None ->
       num_digits, get_point num_digits pos_point, 0, t
-    | Some c -> invalid_arg "Doubledouble.of_string: unknown character"
+    | Some c -> 
+      Printf.ksprintf invalid_arg 
+        "Doubledouble.of_string: unknown character %C" c
   in
   let digits, point, exp, t = loop None 0 zero in
   let t =

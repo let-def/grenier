@@ -1,5 +1,0 @@
-(library
- ((name valmari)
-  (public_name grenier.valmari)
-  (wrapped false)
-  (synopsis "DFA minimization")))

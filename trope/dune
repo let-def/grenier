@@ -1,0 +1,6 @@
+(library
+ (name grenier_trope)
+ (public_name grenier.trope)
+ (wrapped false)
+ (synopsis "Track positions accross rope(-like) operations")
+ (libraries grenier.orderme grenier.baltree))

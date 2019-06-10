@@ -1,5 +1,5 @@
 NAME=grenier
-DUNE=jbuilder
+DUNE=dune
 
 all:
 	$(DUNE) build -p $(NAME)
