@@ -25,7 +25,7 @@ let disbalanced smin smax = smaller_ell smin (smax lsr 1)
 (** {1 Smart but not too much constructors} *)
 
 (** Construct node and check balance *)
-let _node_ l x r =
+let node_ l x r =
   let sl = size l and sr = size r in
   if sl < sr then
     assert (not (disbalanced sl sr))
@@ -34,24 +34,24 @@ let _node_ l x r =
   Node (sl + 1 + sr, l, x, r)
 
 (** Construct Node *)
-let node_ l x r = Node (size l + 1 + size r, l, x, r)
+(*let node_ l x r = Node (size l + 1 + size r, l, x, r)*)
 
 (** Rotations *)
 let rot_left l x r k = match r with
   | Node (_, rl, y, rr) ->
-    k (node_ l x rl) y rr
+    k (k l x rl) y rr
   | _ -> assert false
 
 let rot_right l y r k = match l with
   | Node (_, ll, x, lr) ->
-    k ll x (node_ lr y r)
+    k ll x (k lr y r)
   | _ -> assert false
 
 (** Balancing *)
 let inc_left l x r k =
   let r = match r with
     | Node (_, rl, y, rr) when smaller_ell (size rr) (size rl) ->
-      rot_right rl y rr node_
+      rot_right rl y rr k
     | _ -> r
   in
   rot_left l x r k
@@ -59,7 +59,7 @@ let inc_left l x r k =
 let inc_right l y r k =
   let l = match l with
     | Node (_, ll, x, lr) when smaller_ell (size ll) (size lr) ->
-      rot_left ll x lr node_
+      rot_left ll x lr k
     | _ -> l
   in
   rot_right l y r k
