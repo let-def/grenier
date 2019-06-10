@@ -1,5 +1,16 @@
 (library
  (name grenier_baltree)
  (public_name grenier.baltree)
+ (modules Bt1 Bt2 Mbt)
  (wrapped false)
  (synopsis "Balanced trees"))
+
+(executable
+ (name test)
+ (modules test)
+ (libraries grenier_baltree))
+
+(alias
+ (name runtest)
+ (action (run ./test.exe)))
+

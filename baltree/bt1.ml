@@ -24,17 +24,18 @@ let disbalanced smin smax = smaller_ell smin (smax lsr 1)
 
 (** {1 Smart but not too much constructors} *)
 
-(** Construct node and check balance *)
-let node_ l x r =
-  let sl = size l and sr = size r in
-  if sl < sr then
-    assert (not (disbalanced sl sr))
-  else
-    assert (not (disbalanced sr sl));
-  Node (sl + 1 + sr, l, x, r)
+(** Construct node and check balance
+    let node_ l x r =
+      let sl = size l and sr = size r in
+      if sl < sr then
+        assert (not (disbalanced sl sr))
+      else
+        assert (not (disbalanced sr sl));
+      Node (sl + 1 + sr, l, x, r)
+*)
 
 (** Construct Node *)
-(*let node_ l x r = Node (size l + 1 + size r, l, x, r)*)
+let node_ l x r = Node (size l + 1 + size r, l, x, r)
 
 (** Rotations *)
 let rot_left l x r k = match r with
