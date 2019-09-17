@@ -31,6 +31,9 @@ type t = {hi: float; lo: float}
 
 let t hi lo = {hi; lo}
 
+let float_floor = floor
+let int_abs = abs
+
 (* Constants *)
 let pi      = t 3.141592653589793116e+00 1.224646799147353207e-16
 let two_pi  = t 6.283185307179586232e+00 2.449293598294706414e-16
@@ -224,7 +227,7 @@ let dump {hi; lo} = Printf.sprintf "{hi = %f; lo = %f}" hi lo
 let magnitude x =
   let x_abs = abs_float x in
   let x_log = log10 x_abs in
-  let x_mag = Pervasives.floor x_log in
+  let x_mag = float_floor x_log in
   if x_mag = neg_infinity
   then -10000
   else
@@ -267,7 +270,7 @@ let significant_digits t ~insert_point =
       let y = if rebias then add y ten else y in
       let mag' = magnitude y.hi in
       (*Printf.eprintf "digit: %d, mag:%d, i:%d\n%!" digit mag' i;*)
-      if (mag' < 0 && Pervasives.abs mag' >= num_digits - i) ||
+      if (mag' < 0 && int_abs mag' >= num_digits - i) ||
          (i >= num_digits)
       then ()
       else aux (succ i) y
@@ -358,8 +361,8 @@ let of_string s =
       num_digits, get_point num_digits pos_point, exp, t
     | None ->
       num_digits, get_point num_digits pos_point, 0, t
-    | Some c -> 
-      Printf.ksprintf invalid_arg 
+    | Some c ->
+      Printf.ksprintf invalid_arg
         "Doubledouble.of_string: unknown character %C" c
   in
   let digits, point, exp, t = loop None 0 zero in
