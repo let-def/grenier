@@ -1,3 +1,10 @@
+v0.8 Tue Sep 17 11:59:03 CEST 2019
+--------------------------
+
+Important bugfix in the balancing algorithm of Baltree.
+Use dune binary instead of jbuilder.
+Remove references to Pervasives for OCaml 4.08 compatibility.
+
 v0.7 Sun Jul  8 17:11:24 CEST 2018
 --------------------------
 
