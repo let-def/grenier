@@ -8,4 +8,4 @@
 (test
  (name test_1)
  (modules test_1)
- (libraries dset))
+ (libraries grenier_dset))
