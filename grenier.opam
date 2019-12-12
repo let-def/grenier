@@ -70,6 +70,16 @@ An implementation of [double-double arithmetic](https://en.wikipedia.org/wiki/Qu
 Code is translated from [DD](http://tsusiatsoftware.net/dd/main.html) by Martin Davis.
 See [tsusiatsoftware](http://tsusiatsoftware.net) for more information.
 
+## dset : Diff-set
+
+Combinators to construct abstract sets and compute symmetric differences.
+
+Although not formally proven, when used in a linear fashion the cost of the
+difference should be O(n) in the number of differences.
+
+For interactive applications like user interfaces, this means we can track
+usage of resources at a O(1) cost.
+
 ## hll : HyperLogLog
 
 An implementation of the HyperLogLog probabilistic cardinality estimator.

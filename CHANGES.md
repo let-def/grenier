@@ -1,3 +1,9 @@
+v0.9 Thu Dec 12 16:18:07 CET 2019
+--------------------------
+
+Add a new algorithm `Dset`: construct two set of resources and compute their
+difference efficiently.
+
 v0.8 Tue Sep 17 11:59:03 CEST 2019
 --------------------------
 

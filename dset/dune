@@ -1,0 +1,11 @@
+(library
+ (name grenier_dset)
+ (public_name grenier.dset)
+ (modules Dset)
+ (wrapped false)
+ (synopsis "An algorithm to compute the symmetric difference of abstract sets"))
+
+(test
+ (name test_1)
+ (modules test_1)
+ (libraries dset))
