@@ -1,10 +1,14 @@
 #include <assert.h>
 #include <stdint.h>
+
+#define CAML_INTERNALS
+#include <caml/version.h>
 #include <caml/alloc.h>
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
 #include <caml/fail.h>
 
+#if OCAML_VERSION < 41000
 CAMLextern void caml_minor_collection (void);
 
 extern value *caml_young_ptr, *caml_young_start, *caml_young_end;
@@ -16,15 +20,17 @@ extern intnat
      caml_stat_top_heap_wsz,
      caml_stat_compactions,
      caml_stat_heap_chunks;
+#endif
 
+#if OCAML_VERSION < 40400
 #define Is_young(val) \
   ((void*)(val) < (void*)caml_young_end && (void*)(val) > (void*)caml_young_start)
+#endif
 
 static int value_is_young(value obj)
 {
   return (Is_block(obj) && Is_young(obj));
 }
-
 // C implementation of Hashtable
 
 static size_t table_mask (value table)
