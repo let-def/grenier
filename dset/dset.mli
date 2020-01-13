@@ -29,5 +29,32 @@ val union : 'a t -> 'a t -> 'a t
     compare [s_i] and [s_i+1], at most once for each [i]), it should not affect
     the complexity of the program.
 *)
-type 'a diff = { added : 'a list; removed : 'a list }
-val diff : 'a t -> 'a t -> 'a diff
+type 'a diff = { left_only : 'a list; right_only : 'a list }
+val diff : left:'a t -> right:'a t -> 'a diff
+
+(* Low-level interface *)
+type 'a marking
+
+val mark : left:'a t -> right:'a t -> 'a marking
+
+val unmark : 'a marking -> unit
+(* Remove marks (must be done before calling [mark] again).
+   Fail if the trees were already unmarked. *)
+
+val unmark_and_diff : 'a marking -> 'a diff
+
+type mark =
+  | Left
+  | Right
+  | Both
+
+val get_mark : 'a marking -> 'a t -> mark
+(* Tell from which root the object was reached. *)
+
+type 'a view =
+  | Empty
+  | Union of 'a t * 'a t
+  | Element of 'a
+
+val view : 'a t -> 'a view
+(* View the contents reachable from an object *)

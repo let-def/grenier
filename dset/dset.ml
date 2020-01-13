@@ -73,35 +73,91 @@ let rec traverse qold qnew =
     traverse qold qnew
   )
 
-type 'a diff = { added : 'a list; removed : 'a list }
+type 'a diff = { left_only : 'a list; right_only : 'a list }
 
-let diff told tnew =
-  if told == tnew then
-    { added = []; removed = [] }
-  else
+type 'a marking = {
+  mutable valid : bool;
+  left : 'a t;
+  right : 'a t;
+}
+
+let mark ~left ~right =
+  if left != right then (
     let qold = Queue.create () in
     let qnew = Queue.create () in
-    enqueue qold old_mask told;
-    enqueue qnew new_mask tnew;
-    traverse qold qnew;
-    let added = ref [] in
-    let removed = ref [] in
-    let rec unmark = function
-      | Empty -> ()
-      | Leaf ({mark; v} as t) ->
+    enqueue qold old_mask left;
+    enqueue qnew new_mask right;
+    traverse qold qnew
+  );
+  { valid = true; left; right }
+
+let unmark_and_diff marking =
+  assert (marking.valid);
+  marking.valid <- false;
+  let right_only = ref [] in
+  let left_only = ref [] in
+  let rec unmark = function
+    | Empty -> ()
+    | Leaf ({mark; v} as t) ->
+      t.mark <- 0;
+      if mark = old_mask then (
+        left_only := v :: !left_only;
+      ) else if mark = new_mask then (
+        right_only := v :: !right_only;
+      )
+    | Join t ->
+      if t.mark <> 0 then (
         t.mark <- 0;
-        if mark = old_mask then (
-          removed := v :: !removed;
-        ) else if mark = new_mask then (
-          added := v :: !added;
-        )
-      | Join t ->
-        if t.mark <> 0 then (
-          t.mark <- 0;
-          unmark t.l;
-          unmark t.r;
-        )
-    in
-    unmark told;
-    unmark tnew;
-    { added = !added; removed = !removed }
+        unmark t.l;
+        unmark t.r;
+      )
+  in
+  unmark marking.left;
+  unmark marking.right;
+  { left_only = !left_only; right_only = !right_only }
+
+let unmark marking =
+  assert (marking.valid);
+  marking.valid <- false;
+  let rec unmark = function
+    | Empty -> ()
+    | Leaf ({mark; v} as t) ->
+      t.mark <- 0
+    | Join t ->
+      if t.mark <> 0 then (
+        t.mark <- 0;
+        unmark t.l;
+        unmark t.r;
+      )
+  in
+  unmark marking.left;
+  unmark marking.right
+
+let diff ~left ~right =
+  if left == right then
+    { left_only = []; right_only = [] }
+  else
+    unmark_and_diff (mark left right)
+
+type mark =
+  | Left
+  | Right
+  | Both
+
+let get_mark marking = function
+  | Leaf {mark; _} ->
+    assert (marking.valid);
+    if mark = old_mask then Left
+    else if mark = new_mask then Right
+    else Both
+  | _ -> Both
+
+type 'a view =
+  | Empty
+  | Union of 'a t * 'a t
+  | Element of 'a
+
+let view : 'a t -> 'a view = function
+  | Empty -> Empty
+  | Leaf {v; _} -> Element v
+  | Join {l; r; _} -> Union (l, r)
