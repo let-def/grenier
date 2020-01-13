@@ -1,3 +1,9 @@
+v0.10 Mon Jan 13 08:31:36 CET 2020
+--------------------------
+
+Fix compilation with OCaml 4.10.
+Add a low-level interface to `Dset`.
+
 v0.9 Thu Dec 12 16:18:07 CET 2019
 --------------------------
 
