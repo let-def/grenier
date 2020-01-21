@@ -1,0 +1,6 @@
+(library
+ (name strong)
+ (public_name grenier.strong)
+ (modules Strong)
+ (wrapped false)
+ (synopsis "A few strongly typed abstractions (naturals, ordering, ...)"))
