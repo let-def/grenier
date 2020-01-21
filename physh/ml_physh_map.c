@@ -7,19 +7,10 @@
 #include <caml/memory.h>
 #include <caml/mlvalues.h>
 #include <caml/fail.h>
+#include <caml/gc_ctrl.h>
 
 #if OCAML_VERSION < 41000
 CAMLextern void caml_minor_collection (void);
-
-extern value *caml_young_ptr, *caml_young_start, *caml_young_end;
-
-extern intnat
-     caml_stat_minor_collections,
-     caml_stat_major_collections,
-     caml_stat_heap_wsz,
-     caml_stat_top_heap_wsz,
-     caml_stat_compactions,
-     caml_stat_heap_chunks;
 #endif
 
 #if OCAML_VERSION < 40400
