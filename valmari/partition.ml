@@ -1,3 +1,5 @@
+open Strong
+
 type set = int
 type 'a set_array = 'a array
 
@@ -6,7 +8,7 @@ type 'a loc_array = 'a array
 
 type 'a t = {
   mutable set_count: set;
-  element  : 'a Finite.element loc_array;
+  element  : 'a Finite.elt loc_array;
   location : loc array;
   set_of   : set array;
   first    : loc set_array;
@@ -15,13 +17,13 @@ type 'a t = {
   mutable worklist: set list;
 }
 
-let create (type a) ?partition ((module N) : a Finite.set) =
+let create (type a) ?partition (set : a Finite.set) =
   let id x = x in
   let undefined = 0 in
-  let n = N.n in
+  let n = Finite.cardinal set in
   let t = {
     set_count = if n = 0 then 0 else 1;
-    element  = Finite.Element.all_elements (module N);
+    element  = Finite.all_elements set;
     location = Array.init n id;
     set_of = Array.make n 0;
     first = Array.make n undefined;
@@ -48,8 +50,8 @@ let create (type a) ?partition ((module N) : a Finite.set) =
           t.first.(!set_count) <- i;
           part := elt
         );
-        t.set_of.((elt : N.element :> int)) <- !set_count;
-        t.location.((elt : N.element :> int)) <- i
+        t.set_of.((elt :> int)) <- !set_count;
+        t.location.((elt :> int)) <- i
       done;
       t.past.(!set_count) <- n;
       t.set_count <- !set_count + 1;
@@ -57,7 +59,7 @@ let create (type a) ?partition ((module N) : a Finite.set) =
   t
 
 let mark (t : 'a t) element =
-  let element' = (element : 'a Finite.element :> int) in
+  let element' : 'a Finite.elt :> int = element in
   let set = t.set_of.(element') in
   if set > -1 then (
     let loc_unmarked = t.first.(set) + t.marked.(set) in
@@ -68,7 +70,7 @@ let mark (t : 'a t) element =
       if loc > loc_unmarked then (
         let elt_unmarked = t.element.(loc_unmarked) in
         t.element.(loc) <- elt_unmarked;
-        t.location.((elt_unmarked : _ Finite.element :> int)) <- loc;
+        t.location.((elt_unmarked : _ Finite.elt :> int)) <- loc;
         t.element.(loc_unmarked) <- element;
         t.location.(element') <- loc_unmarked;
       );
@@ -95,7 +97,7 @@ let split t =
           t.past.(set) <- j;
         );
         for i = t.first.(t.set_count) to t.past.(t.set_count) - 1 do
-          t.set_of.((t.element.(i) : _ Finite.element :> int)) <- t.set_count
+          t.set_of.((t.element.(i) : _ Finite.elt :> int)) <- t.set_count
         done;
         t.marked.(set) <- 0;
         t.marked.(t.set_count) <- 0;
@@ -110,7 +112,7 @@ let discard_unmarked t =
       let first_unmarked = t.first.(set) + t.marked.(set) in
       if first_unmarked < t.past.(set) then (
         for i = first_unmarked to t.past.(set) - 1 do
-          let elt = (t.element.(i) : _ Finite.element :> int) in
+          let elt = (t.element.(i) : _ Finite.elt :> int) in
           (*prerr_endline ("discarding " ^ string_of_int elt);*)
           t.set_of.(elt) <- -1
         done;
@@ -131,7 +133,7 @@ let discard t f =
 
 let set_count t = t.set_count
 
-let set_of (t : 'a t) elt = t.set_of.((elt : 'a Finite.element :> int))
+let set_of (t : 'a t) elt = t.set_of.((elt : 'a Finite.elt :> int))
 
 let choose t set =
   t.element.(t.first.(set))

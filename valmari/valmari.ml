@@ -1,24 +1,26 @@
+open Strong
+
 module type DFA = sig
   module States : Finite.Set
   module Transitions : Finite.Set
   module Label : Map.OrderedType
 
-  val label  : Transitions.element -> Label.t
-  val source : Transitions.element -> States.element
-  val target : Transitions.element -> States.element
+  val label  : Transitions.n Finite.elt -> Label.t
+  val source : Transitions.n Finite.elt -> States.n Finite.elt
+  val target : Transitions.n Finite.elt -> States.n Finite.elt
 
-  val initial_state : States.element
-  module Final : Finite.Map with type codomain = States.element
+  val initial_state : States.n Finite.elt
+  module Final : Finite.Map with type codomain = States.n Finite.elt
 end
 
 let index_transitions (type state) (type transition)
     (states : state Finite.set)
     (transitions : transition Finite.set)
-    (target : transition Finite.element -> state Finite.element)
-  : state Finite.element -> transition Finite.element Finite.map
+    (target : transition Finite.elt -> state Finite.elt)
+  : state Finite.elt -> transition Finite.elt Finite.map
   =
   let f = Array.make (Finite.cardinal states + 1) 0 in
-  Finite.Element.iter transitions (fun t ->
+  Finite.iter_set transitions (fun t ->
       let state = (target t :> int)
       in f.(state) <- f.(state) + 1
     );
@@ -26,29 +28,31 @@ let index_transitions (type state) (type transition)
     f.(i + 1) <- f.(i + 1) + f.(i)
   done;
   let a = Array.make (Finite.cardinal transitions)
-      (Finite.Element.of_int transitions 0)
+      (Finite.elt_of_int transitions 0)
   in
-  Finite.Element.rev_iter transitions (fun t ->
+  Finite.rev_iter_set transitions (fun t ->
     let state = (target t :> int) in
     let index = f.(state) - 1 in
     f.(state) <- index;
     a.(index) <- t
     );
   (fun st ->
-     let st = (st : state Finite.element :> int) in
+     let st = (st : state Finite.elt :> int) in
      let offset = f.(st) in
      let n = f.(st + 1) - offset in
+     let module Domain = Natural.Nth(struct let n = n end) in
      (module struct
-       module Domain = Finite.Set(struct let n = n end)
-       type codomain = transition Finite.element
-       let element n = a.(offset + (n : Domain.element :> int))
+       type domain = Domain.n
+       let domain = Domain.n
+       type codomain = transition Finite.elt
+       let get n = a.(offset + (n : Domain.n Finite.elt :> int))
      end))
 
 let discard_unreachable
     (type state) (type transition)
     (blocks : state Partition.t)
-    (transitions_of : state Finite.element -> transition Finite.element Finite.map)
-    (target : transition Finite.element -> state Finite.element)
+    (transitions_of : state Finite.elt -> transition Finite.elt Finite.map)
+    (target : transition Finite.elt -> state Finite.elt)
   =
   Partition.iter_marked_elements blocks 0 (fun state ->
       Finite.iter_map (transitions_of state)
@@ -60,30 +64,30 @@ module Minimize (DFA: DFA) : sig
   include DFA with module Label = DFA.Label
 
   val transport_state :
-    DFA.States.t Finite.element -> States.t Finite.element option
+    DFA.States.n Finite.elt -> States.n Finite.elt option
   val transport_transition :
-    DFA.Transitions.t Finite.element -> Transitions.t Finite.element option
+    DFA.Transitions.n Finite.elt -> Transitions.n Finite.elt option
 
   val represent_state :
-    States.t Finite.element -> DFA.States.t Finite.element
+    States.n Finite.elt -> DFA.States.n Finite.elt
   val represent_transition :
-    Transitions.t Finite.element -> DFA.Transitions.t Finite.element
+    Transitions.n Finite.elt -> DFA.Transitions.n Finite.elt
 end = struct
 
   (* State partition *)
-  let blocks = Partition.create (module DFA.States)
+  let blocks = Partition.create DFA.States.n
 
   (* Remove states unreachable from initial state *)
   let () =
     Partition.mark blocks DFA.initial_state;
     let transitions_source =
-      index_transitions (module DFA.States) (module DFA.Transitions) DFA.source
+      index_transitions DFA.States.n DFA.Transitions.n DFA.source
     in
     discard_unreachable blocks transitions_source DFA.target
 
   (* Index the set of transitions targeting a state *)
   let transitions_targeting =
-    index_transitions (module DFA.States) (module DFA.Transitions) DFA.target
+    index_transitions DFA.States.n DFA.Transitions.n DFA.target
 
   (* Remove states unreachable from final states *)
   let () =
@@ -97,7 +101,7 @@ end = struct
 
   (* Transition partition *)
   let cords = Partition.create
-      (module DFA.Transitions)
+      DFA.Transitions.n
       ~partition:(fun t1 t2 ->
           let l1 = DFA.label t1 in
           let l2 = DFA.label t2 in
@@ -128,21 +132,21 @@ end = struct
       incr cord_set;
     done
 
-  module States = Finite.Set(struct let n = Partition.set_count blocks end)
-  module Transitions = Finite.Set(struct let n = Partition.set_count cords end)
+  module States = Natural.Nth(struct let n = Partition.set_count blocks end)
+  module Transitions = Natural.Nth(struct let n = Partition.set_count cords end)
   module Label = DFA.Label
 
   let transport_state_unsafe state =
-    Finite.Element.of_int
-      (module States) (Partition.set_of blocks state)
+    Finite.elt_of_int
+      States.n (Partition.set_of blocks state)
 
   let represent_state state =
     Partition.choose blocks
-      (state : States.t Finite.element :> int)
+      (state : States.n Finite.elt :> int)
 
   let represent_transition transition =
     Partition.choose cords
-      (transition : Transitions.t Finite.element :> int)
+      (transition : Transitions.n Finite.elt :> int)
 
   let label transition : Label.t =
     DFA.label (represent_transition transition)
@@ -154,27 +158,27 @@ end = struct
     transport_state_unsafe (DFA.target (represent_transition transition))
 
   let initial_state =
-    Finite.Element.of_int (module States)
+    Finite.elt_of_int States.n
       (Partition.set_of blocks DFA.initial_state)
 
   module Final = Finite.Map_of_array(struct
-      type codomain = States.t Finite.element
+      type codomain = States.n Finite.elt
 
       let table =
         Finite.iter_map (module DFA.Final) (Partition.mark blocks);
         let sets = Partition.marked_sets blocks in
         Partition.clear_marks blocks;
-        Array.map (Finite.Element.of_int (module States)) (Array.of_list sets)
+        Array.map (Finite.elt_of_int States.n) (Array.of_list sets)
     end)
 
   let transport_state state =
     match Partition.set_of blocks state with
     | -1 -> None
-    | n -> Some (Finite.Element.of_int (module States) n)
+    | n -> Some (Finite.elt_of_int States.n n)
 
   let transport_transition transition =
     match Partition.set_of cords transition with
     | -1 -> None
-    | n -> Some (Finite.Element.of_int (module Transitions) n)
+    | n -> Some (Finite.elt_of_int Transitions.n n)
 
 end

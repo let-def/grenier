@@ -46,6 +46,7 @@ end
 (* Finite sets: interpret naturals as the cardinality of a set *)
 module Finite : sig
   type 'a set = 'a Natural.t
+  module type Set = Natural.T
   val cardinal : 'a set -> int
 
   type 'a elt = private int
