@@ -113,9 +113,10 @@ module Biarray : sig
   val sort : ('a -> 'a -> int) -> ('a, _) t -> unit
   val stable_sort : ('a -> 'a -> int) -> ('a, _) t -> unit
   val fast_sort : ('a -> 'a -> int) -> ('a, _) t -> unit
-  val to_seq : ('a, _) t -> 'a Seq.t
-  val to_seqi : ('a, _) t -> (int * 'a) Seq.t
-  val of_seq : 'a Seq.t -> ('a, 'a) t
+  (*This can be compiled with OCaml > 4.07 *)
+  (*val to_seq : ('a, _) t -> 'a Seq.t*)
+  (*val to_seqi : ('a, _) t -> (int * 'a) Seq.t*)
+  (*val of_seq : 'a Seq.t -> ('a, 'a) t*)
   external unsafe_get : ('a, _) t -> int -> 'a = "%array_unsafe_get"
   external unsafe_set : (_, 'a) t -> int -> 'a -> unit = "%array_unsafe_set"
 end

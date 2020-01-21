@@ -204,9 +204,9 @@ module Biarray : sig
   val sort : ('a -> 'a -> int) -> ('a, _) t -> unit
   val stable_sort : ('a -> 'a -> int) -> ('a, _) t -> unit
   val fast_sort : ('a -> 'a -> int) -> ('a, _) t -> unit
-  val to_seq : ('a, _) t -> 'a Seq.t
-  val to_seqi : ('a, _) t -> (int * 'a) Seq.t
-  val of_seq : 'a Seq.t -> ('a, 'a) t
+  (*val to_seq : ('a, _) t -> 'a Seq.t*)
+  (*val to_seqi : ('a, _) t -> (int * 'a) Seq.t*)
+  (*val of_seq : 'a Seq.t -> ('a, 'a) t*)
   external unsafe_get : ('a, _) t -> int -> 'a = "%array_unsafe_get"
   external unsafe_set : (_, 'a) t -> int -> 'a -> unit = "%array_unsafe_set"
 end = struct
@@ -264,9 +264,9 @@ end = struct
   let sort f t = Array.sort f (unsafe_to_array_r t)
   let stable_sort f t = Array.stable_sort f (unsafe_to_array_r t)
   let fast_sort f t = Array.fast_sort f (unsafe_to_array_r t)
-  let to_seq t = Array.to_seq (unsafe_to_array_r t)
-  let to_seqi t = Array.to_seqi (unsafe_to_array_r t)
-  let of_seq seq = of_array (Array.of_seq seq)
+  (*let to_seq t = Array.to_seq (unsafe_to_array_r t)*)
+  (*let to_seqi t = Array.to_seqi (unsafe_to_array_r t)*)
+  (*let of_seq seq = of_array (Array.of_seq seq)*)
   external unsafe_get : ('a, _) t -> int -> 'a = "%array_unsafe_get"
   external unsafe_set : (_, 'a) t -> int -> 'a -> unit = "%array_unsafe_set"
 end
