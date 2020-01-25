@@ -12,11 +12,6 @@
 CAMLextern void caml_minor_collection (void);
 #endif
 
-#if OCAML_VERSION < 40400
-#define Is_young(val) \
-  ((void*)(val) < (void*)caml_young_end && (void*)(val) > (void*)caml_young_start)
-#endif
-
 static int value_is_young(value obj)
 {
   return (Is_block(obj) && Is_young(obj));
