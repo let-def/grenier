@@ -1,2 +1,2 @@
-- There are now better estimators for HLL
-- Finish and publish Biarray and Biref
+- There are now better estimators for HLL, update the implementation
+- Publish Biarray and Biref
