@@ -1,0 +1,3 @@
+(library
+ (name biarray)
+ (wrapped false))
