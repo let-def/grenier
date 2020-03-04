@@ -1,3 +1,10 @@
+v0.11 Wed Mar  4 10:07:08 CET 2020
+--------------------------
+
+Collect a few type-level idioms in the `Strong` library.
+Drop support for OCaml 4.03, OCaml 4.04 is now the oldest supported version.
+Fix compilation with the first released version of OCaml 4.10.
+
 v0.10 Mon Jan 13 08:31:36 CET 2020
 --------------------------
 
