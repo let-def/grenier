@@ -1,47 +1,61 @@
-type void (* Uninhabitated type *)
+type (+'r, -'w) t
 
-type (+'r, -'w) bi_array
-let read_only = Obj.magic
+external read_only : ('r, 'w) t -> ('r, Strong.void) t = "%identity"
+external array_as_biarray : 'a array -> ('a, 'a) t = "%identity"
+external biarray_as_array : ('a, 'a) t -> 'a array = "%identity"
 
-external of_array : 'a array -> ('a, 'a) bi_array = "%identity"
-external to_array : ('a, 'a) bi_array -> 'a array = "%identity"
+external length : _ t -> int = "%array_length"
+external get : (_, 'a) t -> int -> 'a = "%array_safe_get"
+external set : ('a, _) t -> int -> 'a -> unit = "%array_safe_set"
+external make : int -> 'a -> ('a, 'a) t = "caml_make_vect"
+external create_float: int -> (float, float) t = "caml_make_float_vect"
 
-external length : _ bi_array -> int = "%bi_array_length"
-external get : (_, 'a) bi_array -> int -> 'a = "%bi_array_safe_get"
-external set : ('a, _) bi_array -> int -> 'a -> unit = "%bi_array_safe_set"
-external make : int -> 'a -> ('a, 'a) bi_array = "caml_make_vect"
-external create_float: int -> (float, float) bi_array = "caml_make_float_vect"
+external unsafe_as_array_r : ('r, _) t -> 'r array = "%identity"
+external unsafe_as_array_w : (_, 'w) t -> 'w array = "%identity"
 
-val init : int -> (int -> 'a) -> ('a, 'a) bi_array
-val append : ('r, _) bi_array -> ('r, _) bi_array -> ('r, 'r) bi_array
-val concat : ('r, _) bi_array list -> ('r, 'r) bi_array
-val sub : ('r, _) bi_array -> int -> int -> ('r, 'r) bi_array
+let init n f = array_as_biarray (Array.init n f)
+let append r1 r2 =
+  array_as_biarray
+    (Array.append (unsafe_as_array_r r1) (unsafe_as_array_r r2))
 
-val copy : ('r, _) bi_array -> ('r, 'r) bi_array
-val fill : (_, 'w) bi_array -> int -> int -> 'w -> unit
-val blit : ('a, _) bi_array -> int -> (_, 'a) bi_array -> int -> int -> unit
-val to_list : ('r, _) bi_array -> 'r list
-val of_list : 'a list -> ('a, 'a) bi_array
+let concat lst =
+  array_as_biarray (Array.concat (Obj.magic (lst : _ t list) : _ array list))
 
-val iter : ('r -> unit) -> ('r, _) bi_array -> unit
-val iteri : (int -> 'r -> unit) -> ('r, _) bi_array -> unit
-val map : ('a -> 'b) -> ('a, _) bi_array -> ('b, 'b) bi_array
-val mapi : (int -> 'a -> 'b) -> ('a, _) bi_array -> ('b, 'b) bi_array
-val fold_left : ('a -> 'b -> 'a) -> 'a -> ('b, _) bi_array -> 'a
-val fold_right : ('b -> 'a -> 'a) -> ('b, _) bi_array -> 'a -> 'a
+let sub t i j =
+  array_as_biarray (Array.sub (unsafe_as_array_r t) i j)
 
-val iter2 : ('a -> 'b -> unit) -> ('a, _) bi_array -> ('b, _) bi_array -> unit
-val map2 : ('a -> 'b -> 'c) -> ('a, _) bi_array -> ('b, _) bi_array -> ('c, 'c) bi_array
+let copy t = array_as_biarray (Array.copy (unsafe_as_array_r t))
 
-val for_all : ('a -> bool) -> ('a, _) bi_array -> bool
-val exists : ('a -> bool) -> ('a, _) bi_array -> bool
-val mem : 'a -> ('a, _) bi_array -> bool
-val memq : 'a -> ('a, _) bi_array -> bool
-val sort : ('a -> 'a -> int) -> ('a, _) bi_array -> unit
-val stable_sort : ('a -> 'a -> int) -> ('a, _) bi_array -> unit
-val fast_sort : ('a -> 'a -> int) -> ('a, _) bi_array -> unit
-val to_seq : ('a, _) bi_array -> 'a Seq.t
-val to_seqi : ('a, _) bi_array -> (int * 'a) Seq.t
-val of_seq : 'a Seq.t -> ('a, 'a) bi_array
-external unsafe_get : ('a, _) bi_array -> int -> 'a = "%bi_array_unsafe_get"
-external unsafe_set : (_, 'a) bi_array -> int -> 'a -> unit = "%bi_array_unsafe_set"
+let fill t i j v =
+  Array.fill (unsafe_as_array_w t) i j v
+
+let blit src i dst j k =
+  Array.blit (unsafe_as_array_r src) i (unsafe_as_array_w dst) j k
+
+let to_list t = Array.to_list (unsafe_as_array_r t)
+let of_list l = array_as_biarray (Array.of_list l)
+
+let iter f t = Array.iter f (unsafe_as_array_r t)
+let iteri f t = Array.iteri f (unsafe_as_array_r t)
+let map f t = array_as_biarray (Array.map f (unsafe_as_array_r t))
+let mapi f t = array_as_biarray (Array.mapi f (unsafe_as_array_r t))
+let fold_left f acc t = Array.fold_left f acc (unsafe_as_array_r t)
+let fold_right f t acc = Array.fold_right f (unsafe_as_array_r t) acc
+
+let iter2 f t1 t2 =
+  Array.iter2 f (unsafe_as_array_r t1) (unsafe_as_array_r t2)
+let map2 f t1 t2 =
+  array_as_biarray (Array.map2 f (unsafe_as_array_r t1) (unsafe_as_array_r t2))
+
+let for_all f t = Array.for_all f (unsafe_as_array_r t)
+let exists f t = Array.exists f (unsafe_as_array_r t)
+let mem x t = Array.mem x (unsafe_as_array_r t)
+let memq x t = Array.memq x (unsafe_as_array_r t)
+let sort f t = Array.sort f (unsafe_as_array_r t)
+let stable_sort f t = Array.stable_sort f (unsafe_as_array_r t)
+let fast_sort f t = Array.fast_sort f (unsafe_as_array_r t)
+(*let to_seq t = Array.to_seq (unsafe_as_array_r t)*)
+(*let to_seqi t = Array.to_seqi (unsafe_as_array_r t)*)
+(*let of_seq seq = array_as_biarray (Array.of_seq seq)*)
+external unsafe_get : ('a, _) t -> int -> 'a = "%array_unsafe_get"
+external unsafe_set : (_, 'a) t -> int -> 'a -> unit = "%array_unsafe_set"
