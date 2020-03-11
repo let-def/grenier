@@ -1,6 +1,6 @@
 (** A set of abstract elements annotated with values of type ['a] that can be
    efficiently diffed. *)
-type 'a t
+type +'a t
 
 (** The empty set *)
 val empty : 'a t
@@ -29,11 +29,11 @@ val union : 'a t -> 'a t -> 'a t
     compare [s_i] and [s_i+1], at most once for each [i]), it should not affect
     the complexity of the program.
 *)
-type 'a diff = { left_only : 'a list; right_only : 'a list }
+type +'a diff = { left_only : 'a list; right_only : 'a list }
 val diff : left:'a t -> right:'a t -> 'a diff
 
 (* Low-level interface *)
-type 'a marking
+type +'a marking
 
 val mark : left:'a t -> right:'a t -> 'a marking
 

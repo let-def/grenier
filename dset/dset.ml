@@ -1,4 +1,4 @@
-type 'a t =
+type +'a t =
   | Empty
   | Leaf of {
       mutable mark: int;
@@ -73,9 +73,9 @@ let rec traverse qold qnew =
     traverse qold qnew
   )
 
-type 'a diff = { left_only : 'a list; right_only : 'a list }
+type +'a diff = { left_only : 'a list; right_only : 'a list }
 
-type 'a marking = {
+type +'a marking = {
   mutable valid : bool;
   left : 'a t;
   right : 'a t;
