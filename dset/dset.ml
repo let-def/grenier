@@ -145,12 +145,12 @@ type mark =
   | Both
 
 let get_mark marking = function
-  | Leaf {mark; _} ->
+  | Leaf {mark; _} | Join {mark; _} ->
     assert (marking.valid);
     if mark = old_mask then Left
     else if mark = new_mask then Right
     else Both
-  | _ -> Both
+  | Empty -> Both
 
 type 'a view =
   | Empty
