@@ -1,0 +1,11 @@
+(library
+ (name dbseq)
+ (public_name grenier.dbseq)
+ (modules Dbseq)
+ (wrapped false)
+ (synopsis "A simple sequence datastructure with fast consing and fast random access"))
+
+; (test
+;  (name test_1)
+;  (modules test_1)
+;  (libraries dbseq))

@@ -1,3 +1,8 @@
+UNRELEASED
+----------
+
+Dbseq: fast sequence datastructure for DeBruijn-indexed environments
+
 v0.11 Wed Mar  4 10:07:08 CET 2020
 --------------------------
 
