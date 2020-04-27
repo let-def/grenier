@@ -1,11 +1,11 @@
-type 'a t =
+type +'a t =
   | T0
   | T1 of 'a * 'a t'
   | T2 of 'a * 'a * 'a t'
   | T3 of 'a * 'a * 'a * 'a t'
   | T4 of 'a * 'a * 'a * 'a * 'a t'
 
-and 'a t' = ('a * 'a * 'a * 'a) t
+and +'a t' = ('a * 'a * 'a * 'a) t
 
 let empty = T0
 
