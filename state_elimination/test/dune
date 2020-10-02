@@ -1,0 +1,21 @@
+(executable
+ (name test)
+ (libraries state_elimination))
+
+(rule
+ (deps Lex.dfa)
+ (targets Lex.expected)
+ (action (with-stdout-to %{targets} (run ./test.exe %{deps}))))
+
+(rule
+ (deps Sample.dfa)
+ (targets Sample.expected)
+ (action (with-stdout-to %{targets} (run ./test.exe %{deps}))))
+
+(alias
+ (name runtest)
+ (action (diff Lex.expected Lex.reference)))
+
+(alias
+ (name runtest)
+ (action (diff Sample.expected Sample.reference)))

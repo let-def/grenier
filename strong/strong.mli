@@ -69,4 +69,8 @@ module Finite : sig
     Map with type codomain = A.codomain
 
   val iter_map : 'a map -> ('a -> unit) -> unit
+
+  type ('n, 'a) map' = (module Map with type codomain = 'a and type domain = 'n)
+  val init_map : 'n set -> ('n elt -> 'a) -> ('n, 'a) map'
+  val map_map : ('n, 'a) map' -> ('a -> 'b) -> ('n, 'b) map'
 end

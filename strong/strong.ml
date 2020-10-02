@@ -115,6 +115,10 @@ module Finite : sig
     Map with type codomain = A.codomain
 
   val iter_map : 'a map -> ('a -> unit) -> unit
+
+  type ('n, 'a) map' = (module Map with type codomain = 'a and type domain = 'n)
+  val init_map : 'n set -> ('n elt -> 'a) -> ('n, 'a) map'
+  val map_map : ('n, 'a) map' -> ('a -> 'b) -> ('n, 'b) map'
 end = struct
   type 'a set = 'a Natural.t
   module type Set = Natural.T
@@ -160,4 +164,18 @@ end = struct
 
   let iter_map (type a) ((module Map) : a map) (f : a -> unit) : unit =
     iter_set Map.domain (fun elt -> f (Map.get elt))
+
+  type ('n, 'a) map' = (module Map with type codomain = 'a and type domain = 'n)
+
+  let init_map (type n a) (n : n set) (f : n elt -> a) : (n, a) map' =
+    let table = Array.init (cardinal n) f in
+    (module struct
+      type domain = n
+      let domain = n
+      type codomain = a
+      let get idx = table.(idx)
+      end)
+
+  let map_map (type n a b) ((module Map) : (n, a) map') (f : a -> b) : (n, b) map' =
+    init_map Map.domain (fun idx -> f (Map.get idx))
 end

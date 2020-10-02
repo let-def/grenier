@@ -1,0 +1,6 @@
+(library
+ (name state_elimination)
+ (public_name grenier.state_elimination)
+ (wrapped false)
+ (libraries strong) 
+ (synopsis "Convert DFA to regex using state elimination algorithm"))
