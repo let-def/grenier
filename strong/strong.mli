@@ -45,32 +45,45 @@ end
 
 (* Finite sets: interpret naturals as the cardinality of a set *)
 module Finite : sig
-  type 'a set = 'a Natural.t
-  module type Set = Natural.T
-  val cardinal : 'a set -> int
+  type 'n set = 'n Natural.t
+  type 'n elt = private int
 
-  type 'a elt = private int
-  val elt_of_int : 'a set -> int -> 'a elt
-  val elt_to_int : 'a elt -> int
-  val iter_set : 'a set -> ('a elt -> unit) -> unit
-  val rev_iter_set : 'a set -> ('a elt -> unit) -> unit
-  val all_elements : 'a set -> 'a elt array
-
-  (* Temporary API, should be replaced by something array-like in the future *)
-  module type Map = sig
-    type domain
-    val domain : domain set
-    type codomain
-    val get : domain elt -> codomain
+  module Set : sig
+    val cardinal : 'n set -> int
+    val iter : 'n set -> ('n elt -> unit) -> unit
+    val rev_iter : 'n set -> ('n elt -> unit) -> unit
+    val fold_left : 'n set -> ('b -> 'n elt -> 'b) -> 'b -> 'b
+    val fold_right : 'n set -> ('n elt -> 'b -> 'b) -> 'b -> 'b
   end
-  type 'a map = (module Map with type codomain = 'a)
 
-  module Map_of_array (A : sig type codomain val table : codomain array end) :
-    Map with type codomain = A.codomain
+  module Elt : sig
+    val of_int_opt : 'n set -> int -> 'n elt option
+    val of_int : 'n set -> int -> 'n elt
+    val to_int : 'n elt -> int
+  end
 
-  val iter_map : 'a map -> ('a -> unit) -> unit
+  module Array : sig
+    type ('n, 'a) t = private 'a array
+    type 'a _array = A : ('n, 'a) t -> 'a _array [@@ocaml.unboxed]
+    val empty : (Natural.zero, _) t
+    val length : ('n, 'a) t -> 'n set
+    external get : ('n, 'a) t -> 'n elt -> 'a = "%array_unsafe_get"
+    external set : ('n, 'a) t -> 'n elt -> 'a -> unit = "%array_unsafe_set"
+    val make : 'n set -> 'a -> ('n, 'a) t
+    val init : 'n set -> ('n elt -> 'a) -> ('n, 'a) t
+    val make_matrix : 'i set -> 'j set -> 'a -> ('i, ('j, 'a) t) t
+    val append : ('n, 'a) t -> ('m, 'a) t -> (('n, 'm) Natural.sum, 'a) t
+    val of_array : 'a array -> 'a _array
+    val to_array : ('n, 'a) t -> 'a array
+    val all_elements : 'n set -> ('n, 'n elt) t
 
-  type ('n, 'a) map' = (module Map with type codomain = 'a and type domain = 'n)
-  val init_map : 'n set -> ('n elt -> 'a) -> ('n, 'a) map'
-  val map_map : ('n, 'a) map' -> ('a -> 'b) -> ('n, 'b) map'
+    val iter : ('a -> unit) -> (_, 'a) t -> unit
+    val iteri : ('n elt -> 'a -> unit) -> ('n, 'a) t -> unit
+    val map : ('a -> 'b) -> ('n, 'a) t -> ('n, 'b) t
+    val mapi : ('n elt -> 'a -> 'b) -> ('n, 'a) t -> ('n, 'b) t
+    val fold_left : ('a -> 'b -> 'a) -> 'a -> ('n, 'b) t -> 'a
+    val fold_right : ('b -> 'a -> 'a) -> ('n, 'b) t -> 'a -> 'a
+    val iter2 : ('a -> 'b -> unit) -> ('n, 'a) t -> ('n, 'b) t -> unit
+    val map2 : ('a -> 'b -> 'c) -> ('n, 'a) t -> ('n, 'b) t -> ('n, 'c)  t
+  end
 end

@@ -20,10 +20,10 @@ type 'a t = {
 let create (type a) ?partition (set : a Finite.set) =
   let id x = x in
   let undefined = 0 in
-  let n = Finite.cardinal set in
+  let n = Finite.Set.cardinal set in
   let t = {
     set_count = if n = 0 then 0 else 1;
-    element  = Finite.all_elements set;
+    element  = Finite.Array.to_array (Finite.Array.all_elements set);
     location = Array.init n id;
     set_of = Array.make n 0;
     first = Array.make n undefined;
