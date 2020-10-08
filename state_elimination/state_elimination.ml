@@ -33,7 +33,7 @@ module type NFA = sig
 end
 
 module Convert
-    (Regex : Regex) (NFA: NFA with type label = Regex.t) :
+    (Regex : Regex) (NFA: NFA with type label := Regex.t) :
 sig
   val result : (NFA.initials, (NFA.finals elt * Regex.t list) list) Array.t
 end =

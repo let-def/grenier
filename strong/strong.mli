@@ -74,6 +74,8 @@ module Finite : sig
     val make_matrix : 'i set -> 'j set -> 'a -> ('i, ('j, 'a) t) t
     val append : ('n, 'a) t -> ('m, 'a) t -> (('n, 'm) Natural.sum, 'a) t
     val of_array : 'a array -> 'a _array
+    module type T = sig include Natural.T type a val table : (n, a) t end
+    val module_of_array : 'a array -> (module T with type a = 'a)
     val to_array : ('n, 'a) t -> 'a array
     val all_elements : 'n set -> ('n, 'n elt) t
 

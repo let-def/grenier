@@ -123,6 +123,8 @@ module Finite : sig
     val make_matrix : 'i set -> 'j set -> 'a -> ('i, ('j, 'a) t) t
     val append : ('n, 'a) t -> ('m, 'a) t -> (('n, 'm) Natural.sum, 'a) t
     val of_array : 'a array -> 'a _array
+    module type T = sig include Natural.T type a val table : (n, a) t end
+    val module_of_array : 'a array -> (module T with type a = 'a)
     val to_array : (_, 'a) t -> 'a array
     val all_elements : 'n set -> ('n, 'n elt) t
 
@@ -183,6 +185,11 @@ end = struct
       Array.make_matrix (Set.cardinal is) (Set.cardinal js) v
     let append = Array.append
     let of_array arr = A arr
+    module type T = sig include Natural.T type a val table : (n, a) t end
+    let module_of_array (type a) (arr : a array) : (module T with type a = a) =
+      let (module Nth) = Natural.nth (Array.length arr) in
+      (module struct include Nth type nonrec a = a let table = arr end)
+
     let to_array x = x
     let all_elements (type a) (set : a set) =
       Array.init (Set.cardinal set) (fun x -> x)
