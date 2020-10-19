@@ -16,33 +16,29 @@ module type Regex = sig
 end
 
 module type NFA = sig
-  type states
-  val states : states set
-  type transitions
-  val transitions : transitions set
+  module States : Strong.Natural.T
+  module Transitions : Strong.Natural.T
   type label
 
-  val label  : transitions elt -> label
-  val source : transitions elt -> states elt
-  val target : transitions elt -> states elt
+  val label  : Transitions.n elt -> label
+  val source : Transitions.n elt -> States.n elt
+  val target : Transitions.n elt -> States.n elt
 
-  type initials
-  val initials : (initials, states elt) Array.t
-  type finals
-  val finals : (finals, states elt) Array.t
+  module Initials : Array.T with type a = States.n elt
+  module Finals : Array.T with type a = States.n elt
 end
 
 module Convert
     (Regex : Regex) (NFA: NFA with type label := Regex.t) :
 sig
-  val result : (NFA.initials, (NFA.finals elt * Regex.t list) list) Array.t
+  val result : (NFA.Initials.n, (NFA.Finals.n elt * Regex.t list) list) Array.t
 end =
 struct
 
   type temp =
     | Unused
     | Label of Regex.t
-    | Final of { index: NFA.finals elt; mutable regexes : Regex.t list }
+    | Final of { index: NFA.Finals.n elt; mutable regexes : Regex.t list }
 
   type state = {
     mutable preds: (state * Regex.t) list;
@@ -56,8 +52,8 @@ struct
   let make_state () = incr state_counter;
     { preds = []; succs = []; temp = Unused }
 
-  let states : (NFA.states, state) Array.t =
-    Array.init NFA.states (fun _ -> make_state ())
+  let states : (NFA.States.n, state) Array.t =
+    Array.init NFA.States.n (fun _ -> make_state ())
 
   let update_list state label = function
     | (state', label') :: rest when state == state' ->
@@ -69,7 +65,7 @@ struct
     target.preds <- update_list source label target.preds;
   )
 
-  let () = Set.iter NFA.transitions (fun transition ->
+  let () = Set.iter NFA.Transitions.n (fun transition ->
       link
         states.(NFA.source transition)
         states.(NFA.target transition)
@@ -82,7 +78,7 @@ struct
       link state states.(nfa_state) Regex.epsilon;
       state
     in
-    Array.map prepare_initial NFA.initials
+    Array.map prepare_initial NFA.Initials.table
 
   let finals =
     let prepare_final nfa_state =
@@ -90,7 +86,7 @@ struct
       link states.(nfa_state) state Regex.epsilon;
       state
     in
-    Array.map prepare_final NFA.finals
+    Array.map prepare_final NFA.Finals.table
 
   let normalize_transitions transitions =
     let to_temp transitions =
@@ -127,8 +123,8 @@ struct
     in
     let preds = normalize_transitions preds in
     let succs = normalize_transitions succs in
-    Printf.eprintf "state %d, %d predecessors, %d successors\n%!"
-      !state_counter (List.length preds) (List.length succs);
+    (*Printf.eprintf "state %d, %d predecessors, %d successors\n%!"
+      !state_counter (List.length preds) (List.length succs);*)
     let stars =
       if stars == Regex.epsilon
       then Regex.epsilon
@@ -181,8 +177,8 @@ let convert
     (type regex initials finals)
     (module Regex : Regex with type t = regex)
     (module NFA : NFA with type label = regex
-                       and type initials = initials
-                       and type finals = finals)
+                       and type Initials.n = initials
+                       and type Finals.n = finals)
     : (initials, (finals elt * regex list) list) Array.t
     =
     let module Result = Convert(Regex)(NFA) in
