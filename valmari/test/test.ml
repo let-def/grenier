@@ -10,61 +10,61 @@ let () =
     "state_count:%d transition_count:%d initial_state:%d final_state_count:%d\n"
     state_count transition_count initial_state final_state_count;
 
+  let module Label = struct
+    type t = int
+    let compare : t -> t -> int = compare
+  end in
   let module DFA = struct
 
     module States = Natural.Nth(struct let n = state_count end)
+    type states = States.n
+    let states = States.n
 
     module Transitions = Natural.Nth(struct let n = transition_count end)
+    type transitions = Transitions.n
+    let transitions = Transitions.n
 
-    module Label = struct
-      type t = int
-      let compare : t -> t -> int = compare
-    end
-
-    let initial_state =
-      Finite.elt_of_int States.n initial_state
-
-    let transitions = Array.init transition_count (fun _i ->
+    let trans_table = Array.init transition_count (fun _i ->
         Scanf.bscanf ic "%d %d %d\n" @@ fun from_state input to_state ->
-        (Finite.elt_of_int States.n from_state,
+        (Finite.Elt.of_int States.n from_state,
          input,
-         Finite.elt_of_int States.n to_state)
+         Finite.Elt.of_int States.n to_state)
       )
 
     let label t =
-      let (_, l, _) = transitions.((t : Transitions.n Finite.elt :> int)) in
+      let (_, l, _) = trans_table.((t : Transitions.n Finite.elt :> int)) in
       l
 
     let source t =
-      let (s, _, _) = transitions.((t : Transitions.n Finite.elt :> int)) in
+      let (s, _, _) = trans_table.((t : Transitions.n Finite.elt :> int)) in
       s
 
     let target t =
-      let (_, _, d) = transitions.((t : Transitions.n Finite.elt :> int)) in
+      let (_, _, d) = trans_table.((t : Transitions.n Finite.elt :> int)) in
       d
 
-    module Final = Finite.Map_of_array(struct
-        type codomain = States.n Finite.elt
+    let initial =
+      Finite.Elt.of_int States.n initial_state
 
-        let table = Array.init final_state_count
-            (fun _i -> Scanf.bscanf ic "%d\n"
-                (Finite.elt_of_int States.n))
-      end)
+    let finals = Array.init final_state_count
+        (fun _i -> Scanf.bscanf ic "%d\n"
+            (Finite.Elt.of_int States.n))
   end in
-  let module MDFA = Valmari.Minimize(DFA) in
+  let module MDFA = Valmari.Minimize(Label)(DFA) in
   Printf.printf
     "%d %d %d %d\n"
-    (Finite.cardinal MDFA.States.n)
-    (Finite.cardinal MDFA.Transitions.n)
-    (MDFA.initial_state :> int)
-    (Finite.cardinal MDFA.Final.domain);
+    (Finite.Set.cardinal MDFA.states)
+    (Finite.Set.cardinal MDFA.transitions)
+    (MDFA.initial :> int)
+    (Array.length MDFA.finals);
 
-  Finite.iter_set MDFA.Transitions.n
+  Finite.Set.iter MDFA.transitions
     (fun t ->
        Printf.printf "%d %d %d\n"
          (MDFA.source t :> int)
          (MDFA.label t :> int)
          (MDFA.target t :> int));
 
-  Finite.iter_map (module MDFA.Final)
-    (fun t -> Printf.printf "%d\n" (t :> int))
+  Array.iter
+    (fun t -> Printf.printf "%d\n" (t : _ Finite.elt :> int))
+    MDFA.finals
