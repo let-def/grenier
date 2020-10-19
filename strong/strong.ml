@@ -97,6 +97,7 @@ module Finite : sig
   type 'n elt = private int
 
   module Set : sig
+    module type T = Natural.T
     val cardinal : 'n set -> int
     val iter : 'n set -> ('n elt -> unit) -> unit
     val rev_iter : 'n set -> ('n elt -> unit) -> unit
@@ -142,6 +143,7 @@ end = struct
   type 'a elt = int
 
   module Set = struct
+    module type T = Natural.T
     let cardinal = Natural.to_int
     let iter (type n) (set : n set) f =
       for i = 0 to cardinal set - 1 do f i done
