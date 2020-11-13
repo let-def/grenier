@@ -109,6 +109,7 @@ module Finite : sig
     val of_int_opt : 'n set -> int -> 'n elt option
     val of_int : 'n set -> int -> 'n elt
     val to_int : 'n elt -> int
+    val compare : 'n elt -> 'n elt -> int
   end
 
   module Array : sig
@@ -116,6 +117,7 @@ module Finite : sig
     type 'a _array = A : ('n, 'a) t -> 'a _array [@@ocaml.unboxed]
 
     val empty : (Natural.zero, _) t
+    val is_empty : ('n, 'a) t -> (Natural.zero, 'n) eq option
     val length : ('n, 'a) t -> 'n set
     external get : ('n, 'a) t -> 'n elt -> 'a = "%array_unsafe_get"
     external set : ('n, 'a) t -> 'n elt -> 'a -> unit = "%array_unsafe_set"
@@ -125,18 +127,23 @@ module Finite : sig
     val append : ('n, 'a) t -> ('m, 'a) t -> (('n, 'm) Natural.sum, 'a) t
     val of_array : 'a array -> 'a _array
     module type T = sig include Natural.T type a val table : (n, a) t end
+    module Of_array (A : sig type a val table : a array end) : T with type a = A.a
     val module_of_array : 'a array -> (module T with type a = 'a)
     val to_array : (_, 'a) t -> 'a array
     val all_elements : 'n set -> ('n, 'n elt) t
 
     val iter : ('a -> unit) -> (_, 'a) t -> unit
     val iteri : ('n elt -> 'a -> unit) -> ('n, 'a) t -> unit
+    val rev_iter : ('a -> unit) -> (_, 'a) t -> unit
+    val rev_iteri : ('n elt -> 'a -> unit) -> ('n, 'a) t -> unit
+
     val map : ('a -> 'b) -> ('n, 'a) t -> ('n, 'b) t
     val mapi : ('n elt -> 'a -> 'b) -> ('n, 'a) t -> ('n, 'b) t
     val fold_left : ('a -> 'b -> 'a) -> 'a -> ('n, 'b) t -> 'a
     val fold_right : ('b -> 'a -> 'a) -> ('n, 'b) t -> 'a -> 'a
     val iter2 : ('a -> 'b -> unit) -> ('n, 'a) t -> ('n, 'b) t -> unit
     val map2 : ('a -> 'b -> 'c) -> ('n, 'a) t -> ('n, 'b) t -> ('n, 'c)  t
+    val copy : ('n, 'a) t -> ('n, 'a) t
   end
 end = struct
   type 'a set = 'a Natural.t
@@ -171,6 +178,8 @@ end = struct
           "Strong.Finite.Elt.of_int #%d %d: %d is not in [0; %d[" c n n c
 
     let to_int x = x
+
+    let compare = Int.compare
   end
 
   module Array = struct
@@ -181,6 +190,8 @@ end = struct
     external set : ('n, 'a) t -> 'n elt -> 'a -> unit = "%array_unsafe_set"
     let length (a : ('n, 'a) t) : 'n set =
       (Obj.magic (T (Array.length a) : _ natural) : _ natural)
+    let is_empty (type a) = function [||] -> Some (Obj.magic Refl) | _ -> None
+
     let make n x = Array.make (Set.cardinal n) x
     let init n f = Array.init (Set.cardinal n) f
     let make_matrix is js v =
@@ -188,6 +199,15 @@ end = struct
     let append = Array.append
     let of_array arr = A arr
     module type T = sig include Natural.T type a val table : (n, a) t end
+
+    module Of_array (A : sig type a val table : a array end)
+      : T with type a = A.a =
+    struct
+      include Natural.Nth(struct let n = Array.length A.table end)
+      type a = A.a
+      let table = A.table
+    end
+
     let module_of_array (type a) (arr : a array) : (module T with type a = a) =
       let (module Nth) = Natural.nth (Array.length arr) in
       (module struct include Nth type nonrec a = a let table = arr end)
@@ -198,11 +218,19 @@ end = struct
 
     let iter = Array.iter
     let iteri = Array.iteri
+
+    let rev_iter f t =
+      for i = Array.length t - 1 downto 0 do f (get t i) done
+
+    let rev_iteri f t =
+      for i = Array.length t - 1 downto 0 do f i (get t i) done
+
     let map = Array.map
     let mapi = Array.mapi
     let fold_left = Array.fold_left
     let fold_right = Array.fold_right
     let iter2 = Array.iter2
     let map2 = Array.map2
+    let copy = Array.copy
   end
 end
