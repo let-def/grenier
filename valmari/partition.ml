@@ -42,7 +42,7 @@ let create (type a) ?partition (set : a Finite.set) =
       let part = ref t.element.(0) in
       t.first.(0) <- 0;
       let set_count = ref 0 in
-      for i = 1 to n - 1 do
+      for i = 0 to n - 1 do
         let elt = t.element.(i) in
         if cmp !part elt <> 0 then (
           t.past.(!set_count) <- i;

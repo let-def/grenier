@@ -19,7 +19,7 @@ let index_transitions (type state) (type transition)
     (states : state Fin.set)
     (transitions : transition Fin.set)
     (target : transition Fin.elt -> state Fin.elt)
-  : state Fin.elt -> transition Fin.elt array
+  : state Fin.elt -> (transition Fin.elt -> unit) -> unit
   =
   let f = Array.make (Fin.Set.cardinal states + 1) 0 in
   Fin.Set.iter transitions (fun t ->
@@ -38,22 +38,21 @@ let index_transitions (type state) (type transition)
     f.(state) <- index;
     a.(index) <- t
     );
-  (fun st ->
+  (fun st fn ->
      let st = (st : state Fin.elt :> int) in
-     let offset = f.(st) in
-     let n = f.(st + 1) - offset in
-     Array.sub a offset n)
+     for i = f.(st) to f.(st + 1) - 1 do fn a.(i) done
+  )
+
 
 let discard_unreachable
     (type state) (type transition)
     (blocks : state Partition.t)
-    (transitions_of : state Fin.elt -> transition Fin.elt array)
+    (transitions_of : state Fin.elt -> (transition Fin.elt -> unit) -> unit)
     (target : transition Fin.elt -> state Fin.elt)
   =
   Partition.iter_marked_elements blocks 0 (fun state ->
-      Array.iter
+      transitions_of state
         (fun transition -> Partition.mark blocks (target transition))
-        (transitions_of state)
     );
   Partition.discard_unmarked blocks
 
@@ -120,7 +119,7 @@ end = struct
       Partition.split blocks;
       while !block_set < Partition.set_count blocks do
         Partition.iter_elements blocks !block_set (fun state ->
-            Array.iter (Partition.mark cords) (transitions_targeting state)
+            transitions_targeting state (Partition.mark cords)
           );
         Partition.split cords;
         incr block_set;
@@ -133,8 +132,29 @@ end = struct
   type states = States.n
   let states = States.n
 
-  module Transitions =
-    Strong.Natural.Nth(struct let n = Partition.set_count cords end)
+  module Transitions = Fin.Array.Of_array(struct
+      type a = In.transitions Fin.elt
+      let table =
+        match Partition.set_count cords with
+        | 0 -> [||]
+        | count ->
+          let count' = ref 0 in
+          for i = 0 to count - 1 do
+            let elt = Partition.choose cords i in
+            if Partition.set_of blocks (In.target elt) > -1 then
+              incr count';
+          done;
+          let table = Array.make !count' (Partition.choose cords 0) in
+          let count' = ref 0 in
+          for i = 0 to count - 1 do
+            let elt = Partition.choose cords i in
+            if Partition.set_of blocks (In.target elt) > -1 then (
+              table.(!count') <- elt;
+              incr count';
+            )
+          done;
+          table
+    end)
   type transitions = Transitions.n
   let transitions = Transitions.n
 
@@ -147,7 +167,7 @@ end = struct
     Partition.choose blocks (state : states Fin.elt :> int)
 
   let represent_transition transition =
-    Partition.choose cords (transition : transitions Fin.elt :> int)
+    Fin.(Transitions.table.(transition))
 
   let label transition : Label.t =
     In.label (represent_transition transition)
