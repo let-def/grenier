@@ -15,9 +15,15 @@ module type DFA = sig
   val finals : states elt array
 end
 
+module type INPUT = sig
+  include DFA
+
+  val refinements : refine:(iter:((states elt -> unit) -> unit) -> unit) -> unit
+end
+
 module Minimize
     (Label : Map.OrderedType)
-    (In: DFA with type label := Label.t) :
+    (In: INPUT with type label := Label.t) :
 sig
   include DFA with type label = Label.t
 

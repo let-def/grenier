@@ -15,6 +15,12 @@ module type DFA = sig
   val finals : states Fin.elt array
 end
 
+module type INPUT = sig
+  include DFA
+
+  val refinements : refine:(iter:((states Fin.elt -> unit) -> unit) -> unit) -> unit
+end
+
 let index_transitions (type state) (type transition)
     (states : state Fin.set)
     (transitions : transition Fin.set)
@@ -58,7 +64,7 @@ let discard_unreachable
 
 module Minimize
     (Label : Map.OrderedType)
-    (In: DFA with type label := Label.t) :
+    (In: INPUT with type label := Label.t) :
 sig
   include DFA with type label = Label.t
 
@@ -97,6 +103,14 @@ end = struct
   let () =
     Array.iter (Partition.mark blocks) In.finals;
     Partition.split blocks
+
+  (* Split explicitely refined states *)
+  let () =
+    let refine ~iter =
+        iter (Partition.mark blocks);
+        Partition.split blocks
+    in
+    In.refinements ~refine
 
   (* Transition partition *)
   let cords =
