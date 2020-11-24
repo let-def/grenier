@@ -44,13 +44,11 @@ let () =
 
     module Transitions = Natural.Nth(struct let n = transition_count end)
 
-    type label = Regex.t
-
     let transitions = Array.init transition_count (fun _i ->
         Scanf.bscanf ic "%d %d %d\n" @@ fun from_state input to_state ->
-        (Finite.elt_of_int States.n from_state,
+        (Finite.Elt.of_int States.n from_state,
          input,
-         Finite.elt_of_int States.n to_state)
+         Finite.Elt.of_int States.n to_state)
       )
 
     let label t =
@@ -65,19 +63,23 @@ let () =
       let (_, _, d) = transitions.((t : Transitions.n Finite.elt :> int)) in
       d
 
-    module Initial = Finite.Map_of_array(struct
-        type codomain = States.n Finite.elt
+    module Initials = Finite.Array.Of_array(struct
+        type a = States.n Finite.elt
 
-        let table = [|Finite.elt_of_int States.n initial_state|]
+        let table = [|Finite.Elt.of_int States.n initial_state|]
     end)
 
-    module Final = Finite.Map_of_array(struct
-        type codomain = States.n Finite.elt
+    module Finals = Finite.Array.Of_array(struct
+        type a = States.n Finite.elt
 
         let table = Array.init final_state_count
             (fun _i -> Scanf.bscanf ic "%d\n"
-                (Finite.elt_of_int States.n))
+                (Finite.Elt.of_int States.n))
       end)
   end in
   let module Result = State_elimination.Convert(Regex)(DFA) in
-  print_endline (Regex.to_string Result.result)
+  Finite.Array.iter (fun res ->
+      List.iter (fun (_, re) ->
+          print_endline (String.concat " | " (List.map Regex.to_string re))
+        ) res
+    ) Result.result
