@@ -78,16 +78,13 @@ let check_binomial2 a b =
   assert (diff =.. (b *.. b));
   assert (DD.is_zero delta)
 
-let check_inv d eps =
-  check_epsilon DD.(inv (inv d)) d eps
-
 let slowpow x exp =
   if exp = 0
   then DD.one
   else
     let x = if exp < 0 then DD.inv x else x in
     let pow = ref x in
-    for i = 2 to abs exp do
+    for _i = 2 to abs exp do
       pow := DD.mul x !pow
     done;
     !pow

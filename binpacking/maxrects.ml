@@ -183,7 +183,7 @@ let is_contained_in a b =
   && a.bin_x+a.bin_w <= b.bin_x+b.bin_w
   && a.bin_y+a.bin_h <= b.bin_y+b.bin_h
 
-let rec prune_free_list_reference = function
+(*let rec prune_free_list_reference = function
   | [] -> []
   | r :: rects ->
     let rec aux r = function
@@ -195,7 +195,7 @@ let rec prune_free_list_reference = function
         r' :: aux r rects
       | [] -> [r]
     in
-    aux r (prune_free_list_reference rects)
+    aux r (prune_free_list_reference rects)*)
 
 let prune_free_list l = Pop_array.maximums is_contained_in l
 
@@ -242,7 +242,7 @@ let insert_global t ?(heuristic=`Short_side_fit) boxes =
     in
     begin try
         while Pop_array.length boxes > 0 do
-          let (pidx, rotated), bin, score =
+          let (pidx, rotated), bin, _score =
             Pop_array.fold boxes select_candidate
               (null_acc (-1, false) default_bin) in
           if pidx = -1 then raise Exit;

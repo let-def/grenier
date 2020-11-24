@@ -65,7 +65,7 @@ let rec validate_rects = function
 
 let occupancy rects =
   float_of_int
-    (List.fold_left (fun acc { Maxrects. w; h } -> acc + w * h) 0 rects)
+    (List.fold_left (fun acc {Maxrects. w; h; _} -> acc + w * h) 0 rects)
 ;;
 
 let rec filter_none = function

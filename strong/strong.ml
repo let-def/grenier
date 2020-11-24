@@ -190,7 +190,7 @@ end = struct
     external set : ('n, 'a) t -> 'n elt -> 'a -> unit = "%array_unsafe_set"
     let length (a : ('n, 'a) t) : 'n set =
       (Obj.magic (T (Array.length a) : _ natural) : _ natural)
-    let is_empty (type a) = function [||] -> Some (Obj.magic Refl) | _ -> None
+    let is_empty = function [||] -> Some (Obj.magic Refl) | _ -> None
 
     let make n x = Array.make (Set.cardinal n) x
     let init n f = Array.init (Set.cardinal n) f
