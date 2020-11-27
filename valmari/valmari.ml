@@ -18,7 +18,8 @@ end
 module type INPUT = sig
   include DFA
 
-  val refinements : refine:(iter:((states Fin.elt -> unit) -> unit) -> unit) -> unit
+  val refinements :
+    refine:(iter:((states Fin.elt -> unit) -> unit) -> unit) -> unit
 end
 
 let index_transitions (type state) (type transition)
@@ -29,8 +30,8 @@ let index_transitions (type state) (type transition)
   =
   let f = Array.make (Fin.Set.cardinal states + 1) 0 in
   Fin.Set.iter transitions (fun t ->
-      let state = (target t :> int)
-      in f.(state) <- f.(state) + 1
+      let state = (target t :> int) in
+      f.(state) <- f.(state) + 1
     );
   for i = 0 to Fin.Set.cardinal states - 1 do
     f.(i + 1) <- f.(i + 1) + f.(i)
@@ -48,7 +49,6 @@ let index_transitions (type state) (type transition)
      let st = (st : state Fin.elt :> int) in
      for i = f.(st) to f.(st + 1) - 1 do fn a.(i) done
   )
-
 
 let discard_unreachable
     (type state) (type transition)
@@ -86,8 +86,7 @@ end = struct
   let () =
     Partition.mark blocks In.initial;
     let transitions_source =
-      index_transitions In.states In.transitions In.source
-    in
+      index_transitions In.states In.transitions In.source in
     discard_unreachable blocks transitions_source In.target
 
   (* Index the set of transitions targeting a state *)

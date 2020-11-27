@@ -49,6 +49,8 @@ let () =
     let finals = Array.init final_state_count
         (fun _i -> Scanf.bscanf ic "%d\n"
             (Finite.Elt.of_int States.n))
+
+    let refinements ~refine:_ = ()
   end in
   let module MDFA = Valmari.Minimize(Label)(DFA) in
   Printf.printf

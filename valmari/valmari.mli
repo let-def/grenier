@@ -18,7 +18,8 @@ end
 module type INPUT = sig
   include DFA
 
-  val refinements : refine:(iter:((states elt -> unit) -> unit) -> unit) -> unit
+  val refinements :
+    refine:(iter:((states elt -> unit) -> unit) -> unit) -> unit
 end
 
 module Minimize
