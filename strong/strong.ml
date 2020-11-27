@@ -103,6 +103,12 @@ module Finite : sig
     val rev_iter : 'n set -> ('n elt -> unit) -> unit
     val fold_left : 'n set -> ('b -> 'n elt -> 'b) -> 'b -> 'b
     val fold_right : 'n set -> ('n elt -> 'b -> 'b) -> 'b -> 'b
+
+    module Gensym () : sig
+      type n
+      val freeze : unit -> n set
+      val fresh : unit -> n elt
+    end
   end
 
   module Elt : sig
@@ -164,6 +170,24 @@ end = struct
       let acc = ref acc in
       for i = cardinal set - 1 downto 0 do acc := f i !acc done;
       !acc
+
+    module Gensym () = struct
+      type n = unit
+
+      let counter = ref 0
+      let frozen = ref false
+
+      let freeze () =
+        frozen := true;
+        T !counter
+
+      let fresh () =
+        if !frozen then
+          failwith "Finite.Set.Gensym.fresh: set has is frozen";
+        let result = !counter in
+        incr counter;
+        result
+    end
   end
 
   module Elt = struct

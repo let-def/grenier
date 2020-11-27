@@ -30,6 +30,7 @@ module Natural : sig
 
   module type T = sig type n val n : n t end
   module Nth (N : sig val n : int end) : T
+
   val nth : int -> (module T)
 
   type ('a, 'b) sum
@@ -55,6 +56,12 @@ module Finite : sig
     val rev_iter : 'n set -> ('n elt -> unit) -> unit
     val fold_left : 'n set -> ('b -> 'n elt -> 'b) -> 'b -> 'b
     val fold_right : 'n set -> ('n elt -> 'b -> 'b) -> 'b -> 'b
+
+    module Gensym () : sig
+      type n
+      val freeze : unit -> n set
+      val fresh : unit -> n elt
+    end
   end
 
   module Elt : sig
