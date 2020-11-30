@@ -11,7 +11,7 @@ module type DFA = sig
   val source : transitions elt -> states elt
   val target : transitions elt -> states elt
 
-  val initial : states elt
+  val initials : states elt array
   val finals : states elt array
 end
 

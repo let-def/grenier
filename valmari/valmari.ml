@@ -11,7 +11,7 @@ module type DFA = sig
   val source : transitions Fin.elt -> states Fin.elt
   val target : transitions Fin.elt -> states Fin.elt
 
-  val initial : states Fin.elt
+  val initials : states Fin.elt array
   val finals : states Fin.elt array
 end
 
@@ -84,7 +84,7 @@ end = struct
 
   (* Remove states unreachable from initial state *)
   let () =
-    Partition.mark blocks In.initial;
+    Array.iter (Partition.mark blocks) In.initials;
     let transitions_source =
       index_transitions In.states In.transitions In.source in
     discard_unreachable blocks transitions_source In.target
@@ -191,8 +191,8 @@ end = struct
   let target transition =
     transport_state_unsafe (In.target (represent_transition transition))
 
-  let initial =
-    Fin.Elt.of_int states (Partition.set_of blocks In.initial)
+  let initials =
+    Array.map transport_state_unsafe In.initials
 
   let finals =
     Array.iter (Partition.mark blocks) In.finals;
