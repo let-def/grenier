@@ -14,6 +14,18 @@ trees.
 For instance, implementing stdlib-like Set/Map is trivial and suffers only a ~5
 % overhead (and one gains a O(1) length/cardinal operation).
 
+### balmap : Alternative to Map & Set implemented on top of baltree
+
+These two modules can be used as a drop-in replacement for `Map` and `Set`.
+The performance characteristics are slightly different: `cardinal` is now O(1),
+some operations use that as a shortcut (`compare`, `subset`, ...).
+
+In addition, the representation is exposed (the internal structure of the tree
+can be pattern matched). It is protected by a private modifier, such that
+invariants cannot be broken. However, custom operations are much easier to
+implement (e.g. `rank` to access the n'th element, which enables uniform
+sampling in O(log n)).
+
 ## trope : Track objects accross rope-like operations
 
 This data structure allows efficient implementation of text markers for text editors (see 
@@ -32,7 +44,7 @@ for a detailed description of what this intent to solve.
 
 Main algorithm follows the amortized solution from "Two Simplified
 Algorithms for Maintaining Order in a List", Michael A. Bender, Richard Cole,
-Erik D. Demaine, Martín Farach-Colton, and Jack Zito..
+Erik D. Demaine, Martín Farach-Colton, and Jack Zito.
 
 A managed implementation provide finer integration with OCaml GC to collect
 items that are no longer reachable via the public API.

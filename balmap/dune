@@ -1,0 +1,6 @@
+(library
+ (name grenier_balmap)
+ (public_name grenier.balmap)
+ (libraries grenier.baltree)
+ (modules Map Set)
+ (synopsis "Map & Set implementations compatible with standard library implemented on top of grenier.baltree"))
