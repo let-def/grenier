@@ -1,7 +1,11 @@
-UNRELEASED
-----------
+v0.12 Tue Mar 30 12:03:05 CEST 2021
+--------------------------
 
-Dbseq: fast sequence datastructure for DeBruijn-indexed environments
+Balmap: alternative to Stdlib Maps and Sets based on baltree.
+Dbseq: fast sequence datastructure for DeBruijn-indexed environments.
+State elimination: convert e-NFA to regular expressions.
+
+Fixed many bugs in and increased expressiveness of Valmari implementation.
 
 v0.11 Wed Mar  4 10:07:08 CET 2020
 --------------------------

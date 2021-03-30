@@ -26,7 +26,7 @@ invariants cannot be broken. However, custom operations are much easier to
 implement (e.g. `rank` to access the n'th element, which enables uniform
 sampling in O(log n)).
 
-## dbseq : Immutable list with random access
+## dbseq: fast sequence datastructure for DeBruijn-indexed environments
 
 Dbseq is a small data structure that offers operations halfway between a list
 and an immutable array.  Most operations have a logarithmic cost. In practice,
