@@ -1,5 +1,5 @@
 (library
- (name grenier_balmap)
+ (name balmap)
  (public_name grenier.balmap)
  (libraries grenier.baltree)
  (modules Map Set)
