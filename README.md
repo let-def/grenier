@@ -98,6 +98,14 @@ Can be used to experiment and learn about the GC but do expect bugs and don't
 expect any kind of compatibility with future OCaml versions.
 (Would be nice to have proper upstream support for such feature though!)
 
+## state elimination : convert an e-nfa to a regex
+
+This library converts e-NFA (including NFA and DFA) to regular expressions.
+
+Unfortunately the regular expression is often of exponential size, unless you
+extend the language to allow sharing sub-expressions (for instance with let
+binders).
+
 ## strong : Some strongly typed primitives (typed equality, ordering, finite sets)
 
 This library defines a few strongly typed idioms that are sometimes useful in OCaml codebase:
