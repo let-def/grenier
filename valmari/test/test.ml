@@ -43,8 +43,8 @@ let () =
       let (_, _, d) = trans_table.((t : Transitions.n Finite.elt :> int)) in
       d
 
-    let initial =
-      Finite.Elt.of_int States.n initial_state
+    let initials =
+      [|Finite.Elt.of_int States.n initial_state|]
 
     let finals = Array.init final_state_count
         (fun _i -> Scanf.bscanf ic "%d\n"
@@ -57,7 +57,7 @@ let () =
     "%d %d %d %d\n"
     (Finite.Set.cardinal MDFA.states)
     (Finite.Set.cardinal MDFA.transitions)
-    (MDFA.initial :> int)
+    (MDFA.initials.(0) :> int)
     (Array.length MDFA.finals);
 
   Finite.Set.iter MDFA.transitions
