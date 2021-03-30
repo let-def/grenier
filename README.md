@@ -26,6 +26,15 @@ invariants cannot be broken. However, custom operations are much easier to
 implement (e.g. `rank` to access the n'th element, which enables uniform
 sampling in O(log n)).
 
+## dbseq : Immutable list with random access
+
+Dbseq is a small data structure that offers operations halfway between a list
+and an immutable array.  Most operations have a logarithmic cost. In practice,
+it is a log with base 4 and small constant factors.
+
+The name comes from the fact that the data structure is particularly suitable
+to associate metadata to variables in De-Bruijn notation when traversing terms.
+
 ## trope : Track objects accross rope-like operations
 
 This data structure allows efficient implementation of text markers for text editors (see 

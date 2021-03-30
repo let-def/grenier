@@ -9,14 +9,14 @@ and +'a t' = ('a * 'a * 'a * 'a) t
 
 let empty = T0
 
-let rec add : type a . a -> a t -> a t =
+let rec cons : type a . a -> a t -> a t =
   fun a0 at ->
   match at with
   | T0 -> T1 (a0, T0)
   | T1 (a1, at') -> T2 (a0, a1, at')
   | T2 (a1, a2, at') -> T3 (a0, a1, a2, at')
   | T3 (a1, a2, a3, at') -> T4 (a0, a1, a2, a3, at')
-  | T4 (a1, a2, a3, a4, at') -> T1 (a0, add (a1, a2, a3, a4) at')
+  | T4 (a1, a2, a3, a4, at') -> T1 (a0, cons (a1, a2, a3, a4) at')
 
 let rec get : type a . int -> a t -> a =
   fun n at ->
