@@ -122,7 +122,7 @@ minimization](https://dl.acm.org/citation.cfm?id=2109576) by Valmari et al.
 The tests and some fixes come from
 [WalkerCodeRanger/dfaMinimizationComparison](https://github.com/WalkerCodeRanger/dfaMinimizationComparison), thanks!
 
-## pcg : PCG random generator
+## fastdom
 
-Playing with [PCG generators](http://www.pcg-random.org/) in OCaml.
-Not even alpha, consider this doesn't exist.
+An implementation of [A Simple, Fast Dominance Algorithm ](citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.14.3249)
+by Keith D. Cooper, Timothy J. Harvey, and Ken Kennedy.
