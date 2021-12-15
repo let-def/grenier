@@ -11,12 +11,13 @@ module type DFA = sig
   val source : transitions Fin.elt -> states Fin.elt
   val target : transitions Fin.elt -> states Fin.elt
 
-  val initials : states Fin.elt array
-  val finals : states Fin.elt array
 end
 
 module type INPUT = sig
   include DFA
+
+  val initials : (states Fin.elt -> unit) -> unit
+  val finals : (states Fin.elt -> unit) -> unit
 
   val refinements :
     refine:(iter:((states Fin.elt -> unit) -> unit) -> unit) -> unit
@@ -68,6 +69,9 @@ module Minimize
 sig
   include DFA with type label = Label.t
 
+  val initials : states Fin.elt array
+  val finals : states Fin.elt array
+
   val transport_state :
     In.states Fin.elt -> states Fin.elt option
   val transport_transition :
@@ -84,7 +88,7 @@ end = struct
 
   (* Remove states unreachable from initial state *)
   let () =
-    Array.iter (Partition.mark blocks) In.initials;
+    In.initials (Partition.mark blocks);
     let transitions_source =
       index_transitions In.states In.transitions In.source in
     discard_unreachable blocks transitions_source In.target
@@ -93,14 +97,14 @@ end = struct
   let transitions_targeting =
     index_transitions In.states In.transitions In.target
 
-  (* Remove states unreachable from final states *)
+  (* Remove states which cannot reach any final state *)
   let () =
-    Array.iter (Partition.mark blocks) In.finals;
+    In.finals (Partition.mark blocks);
     discard_unreachable blocks transitions_targeting In.source
 
   (* Split final states *)
   let () =
-    Array.iter (Partition.mark blocks) In.finals;
+    In.finals (Partition.mark blocks);
     Partition.split blocks
 
   (* Split explicitely refined states *)
@@ -148,36 +152,45 @@ end = struct
   module Transitions = Fin.Array.Of_array(struct
       type a = In.transitions Fin.elt
       let table =
-        match Partition.set_count cords with
+        let count = ref 0 in
+        Fin.Set.iter In.transitions (fun tr ->
+            if Partition.is_first blocks (In.source tr) &&
+               Partition.set_of blocks (In.target tr) > -1
+            then incr count
+          );
+        match !count with
         | 0 -> [||]
-        | count ->
-          let count' = ref 0 in
-          for i = 0 to count - 1 do
-            let elt = Partition.choose cords i in
-            if Partition.set_of blocks (In.target elt) > -1 then
-              incr count';
-          done;
-          let table = Array.make !count' (Partition.choose cords 0) in
-          let count' = ref 0 in
-          for i = 0 to count - 1 do
-            let elt = Partition.choose cords i in
-            if Partition.set_of blocks (In.target elt) > -1 then (
-              table.(!count') <- elt;
-              incr count';
+        | n -> Array.make n (Fin.Elt.of_int In.transitions 0)
+
+      let () =
+        let count = ref 0 in
+        Fin.Set.iter In.transitions (fun tr ->
+            if Partition.is_first blocks (In.source tr) &&
+               Partition.set_of blocks (In.target tr) > -1
+            then (
+              let index = !count in
+              incr count;
+              table.(index) <- tr
             )
-          done;
-          table
+          );
     end)
   type transitions = Transitions.n
   let transitions = Transitions.n
 
   type label = Label.t
 
-  let transport_state_unsafe state =
-    Fin.Elt.of_int states (Partition.set_of blocks state)
+  let transport_state_unsafe =
+    let table =
+      Fin.Array.init In.states (Partition.set_of blocks)
+    in
+    Fin.Array.get table
 
-  let represent_state state =
-    Partition.choose blocks (state : states Fin.elt :> int)
+  let represent_state =
+    let table =
+      Fin.Array.init states
+        (fun st -> Partition.choose blocks (st : states Fin.elt :> int))
+    in
+    Fin.Array.get table
 
   let represent_transition transition =
     Fin.(Transitions.table.(transition))
@@ -186,28 +199,36 @@ end = struct
     In.label (represent_transition transition)
 
   let source transition =
-    transport_state_unsafe (In.source (represent_transition transition))
+    Fin.Elt.of_int states
+      (transport_state_unsafe (In.source (represent_transition transition)))
 
   let target transition =
-    transport_state_unsafe (In.target (represent_transition transition))
+    Fin.Elt.of_int states
+      (transport_state_unsafe (In.target (represent_transition transition)))
 
   let initials =
-    Array.map transport_state_unsafe In.initials
+    In.initials (Partition.mark blocks);
+    let sets = Partition.marked_sets blocks in
+    Partition.clear_marks blocks;
+    Array.map (Fin.Elt.of_int states) (Array.of_list sets)
 
   let finals =
-    Array.iter (Partition.mark blocks) In.finals;
+    In.finals (Partition.mark blocks);
     let sets = Partition.marked_sets blocks in
     Partition.clear_marks blocks;
     Array.map (Fin.Elt.of_int states) (Array.of_list sets)
 
   let transport_state state =
-    match Partition.set_of blocks state with
+    match transport_state_unsafe state with
     | -1 -> None
     | n -> Some (Fin.Elt.of_int states n)
 
-  let transport_transition transition =
-    match Partition.set_of cords transition with
-    | -1 -> None
-    | n -> Some (Fin.Elt.of_int transitions n)
+  let transport_transition =
+    let table = Fin.Array.make In.transitions None in
+    Fin.Array.iteri (fun tr trin ->
+        assert (Fin.Array.get table trin = None);
+        Fin.Array.set table trin (Some tr);
+      ) Transitions.table;
+    Fin.Array.get table
 
 end

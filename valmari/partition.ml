@@ -9,11 +9,11 @@ type 'a loc_array = 'a array
 type 'a t = {
   mutable set_count: set;
   element  : 'a Finite.elt loc_array;
-  location : loc array;
-  set_of   : set array;
-  first    : loc set_array;
-  past     : loc set_array;
-  marked   : int set_array;
+  location : loc array; (* L *)
+  set_of   : set array; (* S *)
+  first    : loc set_array; (* F *)
+  past     : loc set_array; (* P *)
+  marked   : int set_array; (* M *)
   mutable worklist: set list;
 }
 
@@ -106,20 +106,17 @@ let split t =
     ) worklist
 
 let discard_unmarked t =
-  let worklist = t.worklist in
   t.worklist <- [];
-  List.iter (fun set ->
-      let first_unmarked = t.first.(set) + t.marked.(set) in
-      if first_unmarked < t.past.(set) then (
-        for i = first_unmarked to t.past.(set) - 1 do
-          let elt = (t.element.(i) : _ Finite.elt :> int) in
-          (*prerr_endline ("discarding " ^ string_of_int elt);*)
-          t.set_of.(elt) <- -1
-        done;
-        t.past.(set) <- first_unmarked;
-      );
-      t.marked.(set) <- 0
-    ) worklist
+  for set = 0 to t.set_count - 1 do
+    let first_unmarked = t.first.(set) + t.marked.(set) in
+    for i = first_unmarked to t.past.(set) - 1 do
+      let elt = (t.element.(i) : _ Finite.elt :> int) in
+      (*prerr_endline ("discarding " ^ string_of_int elt);*)
+      t.set_of.(elt) <- -1
+    done;
+    t.past.(set) <- first_unmarked;
+    t.marked.(set) <- 0
+  done
 
 let discard t f =
   for set = 0 to t.set_count - 1 do
@@ -136,7 +133,14 @@ let set_count t = t.set_count
 let set_of (t : 'a t) elt = t.set_of.((elt : 'a Finite.elt :> int))
 
 let choose t set =
+  assert (t.first.(set) < t.past.(set));
   t.element.(t.first.(set))
+
+let choose_opt t set =
+  if t.first.(set) < t.past.(set) then
+    Some t.element.(t.first.(set))
+  else
+    None
 
 let iter_elements t set f =
   for i = t.first.(set) to t.past.(set) - 1 do
@@ -160,3 +164,8 @@ let clear_marks t =
   t.worklist <- [];
   List.iter (fun set -> t.marked.(set) <- 0) worklist
 
+let is_first t n =
+  let n = (n : 'n Finite.elt :> int) in
+  let s = t.set_of.(n) in
+  let loc = t.location.(n) in
+  (s > -1 && loc = t.first.(s) && loc < t.past.(s))

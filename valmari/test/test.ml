@@ -43,12 +43,15 @@ let () =
       let (_, _, d) = trans_table.((t : Transitions.n Finite.elt :> int)) in
       d
 
-    let initials =
-      [|Finite.Elt.of_int States.n initial_state|]
+    let initials f = f (Finite.Elt.of_int States.n initial_state)
 
-    let finals = Array.init final_state_count
-        (fun _i -> Scanf.bscanf ic "%d\n"
-            (Finite.Elt.of_int States.n))
+    let finals =
+      let finals =
+        Array.init final_state_count
+          (fun _i -> Scanf.bscanf ic "%d\n"
+              (Finite.Elt.of_int States.n));
+      in
+      fun f -> Array.iter f finals
 
     let refinements ~refine:_ = ()
   end in
