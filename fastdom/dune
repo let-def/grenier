@@ -1,0 +1,6 @@
+(library
+ (name fastdom)
+ (public_name grenier.fastdom)
+ (modules Fastdom)
+ (wrapped false)
+ (synopsis "An implementation of 'A Simple, Fast Dominance Algorithm'"))

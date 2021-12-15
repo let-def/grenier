@@ -1,3 +1,8 @@
+????
+--------------------------
+
+Add "Fastdom", an implementation of a dominance algorithm.
+
 v0.12 Tue Mar 30 12:03:05 CEST 2021
 --------------------------
 
