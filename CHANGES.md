@@ -1,7 +1,9 @@
-????
+v0.13 Wed Dec 15 15:39:31 CET 2021
 --------------------------
 
-Add "Fastdom", an implementation of a dominance algorithm.
+Fastdom: implementation of a dominance algorithm.
+Fix various bugs in Valmari DFA minimizer.
+Get rid of "PCG" unused code.
 
 v0.12 Tue Mar 30 12:03:05 CEST 2021
 --------------------------
