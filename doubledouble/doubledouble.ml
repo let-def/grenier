@@ -111,6 +111,10 @@ let add {hi = h1; lo = l1} {hi = h2; lo = l2} =
 let neg {hi; lo} = {hi = -.hi; lo = -.lo}
 let sub t1 t2 = add t1 (neg t2)
 
+(* Disable fused-multiply-add optimization
+   See https://github.com/ocaml/ocaml/issues/10323. *)
+let ( *. ) x y = Sys.opaque_identity (x *. y)
+
 let mul {hi = h1; lo = l1} {hi = h2; lo = l2} =
   (*C = SPLIT * hi; hx = C-hi; c = SPLIT * y.hi;*)
   let c' = k_split *. h1 in
