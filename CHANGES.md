@@ -1,9 +1,10 @@
-v0.13 Wed Dec 15 15:39:31 CET 2021
+v0.13 Thu Dec 16 10:43:05 CET 2021
 --------------------------
 
 Fastdom: implementation of a dominance algorithm.
 Fix various bugs in Valmari DFA minimizer.
 Get rid of "PCG" unused code.
+Doubledouble: disable FMADD to strictly stick to 64-bits precision.
 
 v0.12 Tue Mar 30 12:03:05 CEST 2021
 --------------------------
