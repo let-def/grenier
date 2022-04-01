@@ -26,6 +26,16 @@ invariants cannot be broken. However, custom operations are much easier to
 implement (e.g. `rank` to access the n'th element, which enables uniform
 sampling in O(log n)).
 
+## binder introducer: transform graphs into trees by introducing binding nodes
+
+A generic algorithm that turns a directed graph intro a tree.
+It finds where binding nodes should be introduced to make the resulting tree
+readable. The idea is described in 
+[this blog post](https://def.lakaban.net/posts/2020-11-14-pretty-printing-with-dominators).
+
+For instance, this is useful to print cyclic values 
+(see [Cmon](https://github.com/let-def/cmon)).
+
 ## dbseq: fast sequence datastructure for DeBruijn-indexed environments
 
 Dbseq is a small data structure that offers operations halfway between a list

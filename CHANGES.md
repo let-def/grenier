@@ -1,3 +1,9 @@
+v0.14 Fri Apr  1 16:18:57 JST 2022
+--------------------------
+
+Binder introducer: transform a directed graph into a tree by introducing
+binding nodes.
+
 v0.13 Thu Dec 16 10:43:05 CET 2021
 --------------------------
 

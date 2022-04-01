@@ -1,0 +1,17 @@
+(library
+ (name binder_introducer)
+ (public_name grenier.binder_introducer)
+ (modules Binder_introducer)
+ (libraries fastdom)
+ (wrapped false)
+ (synopsis "Transform directed graphs to trees by introducing binders"))
+
+(executable
+ (name test)
+ (modules test)
+ (libraries binder_introducer))
+
+(alias
+ (name runtest)
+ (deps test.exe)
+ (action (run %{deps})))
