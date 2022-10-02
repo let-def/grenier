@@ -18,7 +18,7 @@ val empty : 'a t
 val cons : 'a -> 'a t -> 'a t
 (** [cons x xs] adds element [x] at the beginning of sequence [xs].
     [x] now has index 0 and [xs]'s elements are shifted by 1.
-    Worst-case cost is [O(log n)], though the actual cost is quasi constant.
+    Worst-case cost is O(log n), though the amortized cost is O(1).
 *)
 
 val get : int -> 'a t -> 'a
@@ -27,6 +27,8 @@ val get : int -> 'a t -> 'a
 
     The operation is only defined if [0 <= i < length xs], and will raise
     [Not_found] if [i] is out of bounds.
+
+    O(log i).
 *)
 
 val set : int -> 'a -> 'a t -> 'a t
@@ -34,10 +36,32 @@ val set : int -> 'a -> 'a t -> 'a t
 
     The operation is only defined if [0 <= i < length xs], and will raise
     [Not_found] if [i] is out of bounds.
+
+    O(log i).
 *)
 
 val update : 'a t -> int -> ('a -> 'a) -> 'a t
-(** [update xs i f] behaves like [set i (f (get i xs)) xs] *)
+(** [update xs i f] behaves like [set i (f (get i xs)) xs].
+
+    O(log i).
+*)
 
 val length : 'a t -> int
-(** [length xs] returns the number of elements in [xs] *)
+(** [n = length xs] is the number of elements in [xs].
+
+    O(log n).
+*)
+
+val is_empty : 'a t -> bool
+(** [is_empty t] iff [t = empty] (equivalently [length t = 0]).
+
+    O(1).
+*)
+
+val uncons : 'a t -> ('a * 'a t) option
+(** Revert the effect of the last [cons] (with the same complexity). *)
+
+val drop : int -> 'a t -> 'a t
+(** [drop n x] removes [n] elements from [x].
+    Faster than [uncons]'ing [n] times.
+    (TODO: determine complexity) *)

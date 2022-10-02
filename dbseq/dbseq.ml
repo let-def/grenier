@@ -18,6 +18,50 @@ let rec cons : type a . a -> a t -> a t =
   | T3 (a1, a2, a3, at') -> T4 (a0, a1, a2, a3, at')
   | T4 (a1, a2, a3, a4, at') -> T1 (a0, cons (a1, a2, a3, a4) at')
 
+let rec flatten : type a . (a * a * a * a) t -> a t = function
+  | T0 -> T0
+  | T1 ((a0, a1, a2, a3), at) ->
+    T4 (a0, a1, a2, a3, flatten at)
+  | T2 ((a0, a1, a2, a3), aa1, at) ->
+    T4 (a0, a1, a2, a3, T1 (aa1, at))
+  | T3 ((a0, a1, a2, a3), aa1, aa2, at) ->
+    T4 (a0, a1, a2, a3, T2 (aa1, aa2, at))
+  | T4 ((a0, a1, a2, a3), aa1, aa2, aa3, at) ->
+    T4 (a0, a1, a2, a3, T3 (aa1, aa2, aa3, at))
+
+let rec drop : type a . int -> a t -> a t =
+  fun n at ->
+  if n = 0 then
+    at
+  else
+    match n, at with
+    | _, T0 -> T0
+    | 1, T2 (_, a1, at) | 2, T3 (_, _, a1, at) | 3, T4 (_, _, _, a1, at) ->
+      T1 (a1, at)
+    | 1, T3 (_, a1, a2, at) | 2, T4 (_, _, a1, a2, at) ->
+      T2 (a1, a2, at)
+    | 1, T4 (_, a1, a2, a3, at) ->
+      T3 (a1, a2, a3, at)
+    | _, T1 (_, at) -> drop_rest (n - 1) at
+    | _, T2 (_, _, at) -> drop_rest (n - 2) at
+    | _, T3 (_, _, _, at) -> drop_rest (n - 3) at
+    | _, T4 (_, _, _, _, at) -> drop_rest (n - 4) at
+
+and drop_rest : type a . int -> (a * a * a * a) t -> a t =
+  fun n at ->
+  let n' = n / 4 in
+  let at' = drop n' at in
+  drop (n land 3) (flatten at')
+
+let rec uncons : type a . a t -> (a * a t) option =
+  fun at ->
+  match at with
+  | T0 -> None
+  | T1 (a1, at') -> Some (a1, flatten at')
+  | T2 (a1, a2, at') -> Some (a1, T1 (a2, at'))
+  | T3 (a1, a2, a3, at') -> Some (a1, T2 (a2, a3, at'))
+  | T4 (a1, a2, a3, a4, at') -> Some (a1, T3 (a2, a3, a4, at'))
+
 let rec get : type a . int -> a t -> a =
   fun n at ->
   match n, at with
@@ -81,6 +125,10 @@ let rec length : type a . a t -> int =
   | T2 (_, _, at) -> 2 + 4 * length at
   | T3 (_, _, _, at) -> 3 + 4 * length at
   | T4 (_, _, _, _, at) -> 4 + 4 * length at
+
+let is_empty = function
+  | T0 -> true
+  | _ -> false
 
 (* minimal bench, adding elements:
    let () =
