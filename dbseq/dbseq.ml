@@ -53,7 +53,7 @@ and drop_rest : type a . int -> (a * a * a * a) t -> a t =
   let at' = drop n' at in
   drop (n land 3) (flatten at')
 
-let rec uncons : type a . a t -> (a * a t) option =
+let uncons : type a . a t -> (a * a t) option =
   fun at ->
   match at with
   | T0 -> None
@@ -145,3 +145,40 @@ let is_empty = function
      Printf.printf "adding %d elements %d times took %.03fs (%.03fs per pass)\n"
       i j time (time /. float j)
 *)
+
+let rec seq_flatten : type a. (a * a * a * a) Seq.t -> a Seq.t =
+  fun seq () ->
+  match seq () with
+  | Seq.Nil -> Seq.Nil
+  | Seq.Cons ((a1, a2, a3, a4), seq') ->
+    Seq.Cons (a1, Seq.cons a2 (Seq.cons a3 (Seq.cons a4 (seq_flatten seq'))))
+
+let rec to_seq : type a. a t -> a Seq.t = function
+  | T0 -> Seq.empty
+  | T1 (a1, at) -> Seq.cons a1 (seq_flatten (to_seq at))
+  | T2 (a1, a2, at) ->
+    Seq.cons a1 (Seq.cons a2 (seq_flatten (to_seq at)))
+  | T3 (a1, a2, a3, at) ->
+    Seq.cons a1 (Seq.cons a2 (Seq.cons a3 (seq_flatten (to_seq at))))
+  | T4 (a1, a2, a3, a4, at) ->
+    Seq.cons a1 (Seq.cons a2 (Seq.cons a3 (Seq.cons a4 (seq_flatten (to_seq at)))))
+
+let rec seq_rev_flatten : type a. (a * a * a * a) Seq.t -> a Seq.t -> a Seq.t =
+  fun seq k () ->
+  match seq () with
+  | Seq.Nil -> k ()
+  | Seq.Cons ((a1, a2, a3, a4), seq') ->
+    Seq.Cons (a4, Seq.cons a3 (Seq.cons a2 (Seq.cons a1 (seq_rev_flatten seq' k))))
+
+let rec to_rev_seq : type a. a t -> a Seq.t =
+  fun t ->
+  match t with
+  | T0 -> Seq.empty
+  | T1 (a1, at) ->
+    seq_rev_flatten (to_rev_seq at) (Seq.cons a1 Seq.empty)
+  | T2 (a1, a2, at) ->
+    seq_rev_flatten (to_rev_seq at) (Seq.cons a2 (Seq.cons a1 Seq.empty))
+  | T3 (a1, a2, a3, at) ->
+    seq_rev_flatten (to_rev_seq at) (Seq.cons a3 (Seq.cons a2 (Seq.cons a1 Seq.empty)))
+  | T4 (a1, a2, a3, a4, at) ->
+    seq_rev_flatten (to_rev_seq at) (Seq.cons a4 (Seq.cons a3 (Seq.cons a2 (Seq.cons a1 Seq.empty))))

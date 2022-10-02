@@ -65,3 +65,12 @@ val drop : int -> 'a t -> 'a t
 (** [drop n x] removes [n] elements from [x].
     Faster than [uncons]'ing [n] times.
     (TODO: determine complexity) *)
+
+val to_seq : 'a t -> 'a Seq.t
+(** Returns the sequence of elements, in order (get 0, get 1, ...).
+    O(1) per element on average, O(log n) per element worst case. *)
+
+val to_rev_seq : 'a t -> 'a Seq.t
+(** Returns the sequence of elements, in reverse order (get (length - 1),
+    get (length - 2), ...).
+    O(1) per element on average, O(log n) per element worst case. *)
