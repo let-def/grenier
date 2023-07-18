@@ -25,5 +25,6 @@ This library implements various datastructures and algorithms:
 - immutable sequences
 - jump consistent hashing
 - solutions to the order maintenance problem
+- congruence closure
 - ...
 """

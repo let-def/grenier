@@ -1,0 +1,15 @@
+(library
+ (name congre)
+ (public_name grenier.congre)
+ (modules congre)
+ (synopsis "A fast implementation of congruence-closure"))
+
+(executable
+ (name test)
+ (modules test)
+ (libraries congre))
+
+(alias
+ (name runtest)
+ (deps ./test.exe)
+ (action (run %{deps})))
