@@ -368,4 +368,11 @@ struct
 
   let of_seq seq =
     add_seq seq empty
+
+  let add_to_list x data m =
+    let add = function None -> Some [data] | Some l -> Some (data :: l) in
+    update x add m
+
+  let to_list = bindings
+  let of_list bs = List.fold_left (fun m (k, v) -> add k v m) empty bs
 end

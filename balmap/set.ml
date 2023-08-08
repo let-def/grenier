@@ -366,4 +366,6 @@ struct
         Bt1.node l k1 r
       else
         Bt1.join l r
+
+  let to_list = elements
 end
