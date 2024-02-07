@@ -12,6 +12,12 @@
 CAMLextern void caml_minor_collection (void);
 #endif
 
+#if OCAML_VERSION < 50100
+#define get_minor_collections() caml_stat_minor_collections
+#else
+#define get_minor_collections() atomic_load(&caml_minor_collections_count)
+#endif
+
 static int value_is_young(value obj)
 {
   return (Is_block(obj) && Is_young(obj));
@@ -59,7 +65,7 @@ value ml_physh_set_alloc(value empty, value null)
   Field(vmin, 1) = null;
 
   v = caml_alloc_small(6, 0);
-  Field(v, 0) = Val_int(caml_stat_minor_collections);
+  Field(v, 0) = Val_int(get_minor_collections());
   Field(v, 1) = Val_int(0);
   Field(v, 2) = vmin;
   Field(v, 3) = Val_int(caml_stat_compactions);
@@ -80,12 +86,12 @@ static int has_capacity(size_t sz, size_t n)
 
 static int t_minor_is_valid(value t)
 {
-  return (Int_val(Field(t, 0)) == caml_stat_minor_collections);
+  return (Int_val(Field(t, 0)) == get_minor_collections());
 }
 
 static void t_minor_set_valid(value t)
 {
-  Field(t, 0) = Val_int(caml_stat_minor_collections);
+  Field(t, 0) = Val_int(get_minor_collections());
 }
 
 static size_t t_minor_fill(value t)
