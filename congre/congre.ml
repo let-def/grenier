@@ -18,6 +18,14 @@ module rec PairTable : Hashtbl.S with type key = Def.epair =
 
 and Def : sig
 
+  (* Workaround limitations of [@@unboxed] analysis for OCaml 4.08 to OCaml 4.10 *)
+  type ('a, 'graph, 'change) snapshot__ = {
+    sn_graph: 'graph;
+    mutable sn_mark: bool ref;
+    mutable sn_changes: 'change list;
+    mutable sn_next: ('a, 'graph, 'change) snapshot__;
+  }
+
   type 'a node = {
     id: int;
     mutable value: 'a;
@@ -34,20 +42,15 @@ and Def : sig
     result: 'a node;
   }
 
-  and 'a snapshot_ = {
-    sn_graph: 'a graph;
-    mutable sn_mark: bool ref;
-    mutable sn_changes: change list;
-    mutable sn_next: 'a snapshot_;
-  }
-
-  and snapshot = Snapshot : 'a snapshot_ -> snapshot [@@ocaml.unboxed]
-
   and 'a kind =
     | Uninterpreted
     | Injective
     | Constructor
     | Construction of 'a node * 'a node
+
+  and 'a snapshot_ = ('a, 'a graph, change) snapshot__
+
+  and snapshot = Snapshot : ('a, 'a graph, change) snapshot__ -> snapshot [@@ocaml.unboxed]
 
   and 'a var = {
     mutable var_value: 'a;
