@@ -134,5 +134,10 @@ The tests and some fixes come from
 
 ## fastdom
 
-An implementation of [A Simple, Fast Dominance Algorithm ](citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.14.3249)
+An implementation of [A Simple, Fast Dominance Algorithm](citeseerx.ist.psu.edu/viewdoc/summary?doi=10.1.1.14.3249)
 by Keith D. Cooper, Timothy J. Harvey, and Ken Kennedy.
+
+## congre
+
+A congruence closure algorithm, inspired by [Fast congruence closure and extensions](https://www.sciencedirect.com/science/article/pii/S0890540106001581) by Robert Nieuwenhuis and Albert Oliveras.
+Support backtracking and interpretation of equivalence classes to OCaml value.
