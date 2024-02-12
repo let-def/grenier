@@ -369,9 +369,16 @@ struct
   let of_seq seq =
     add_seq seq empty
 
-  let add_to_list x data m =
-    let add = function None -> Some [data] | Some l -> Some (data :: l) in
-    update x add m
+  let rec add_to_list k v = function
+    | Leaf -> singleton k [v]
+    | Node (_, l, k', v', r) ->
+      let c = O.compare k k' in
+      if c < 0 then
+        Bt2.node (add_to_list k v l) k' v' r
+      else if c > 0 then
+        Bt2.node l k' v' (add_to_list k v r)
+      else
+        Bt2.node l k (v :: v') r
 
   let to_list = bindings
   let of_list bs = List.fold_left (fun m (k, v) -> add k v m) empty bs
