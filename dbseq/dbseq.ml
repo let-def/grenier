@@ -146,39 +146,41 @@ let is_empty = function
       i j time (time /. float j)
 *)
 
+let seq_cons x xs () = Seq.Cons (x, xs)
+
 let rec seq_flatten : type a. (a * a * a * a) Seq.t -> a Seq.t =
   fun seq () ->
   match seq () with
   | Seq.Nil -> Seq.Nil
   | Seq.Cons ((a1, a2, a3, a4), seq') ->
-    Seq.Cons (a1, Seq.cons a2 (Seq.cons a3 (Seq.cons a4 (seq_flatten seq'))))
+    Seq.Cons (a1, seq_cons a2 (seq_cons a3 (seq_cons a4 (seq_flatten seq'))))
 
 let rec to_seq : type a. a t -> a Seq.t = function
   | T0 -> Seq.empty
-  | T1 (a1, at) -> Seq.cons a1 (seq_flatten (to_seq at))
+  | T1 (a1, at) -> seq_cons a1 (seq_flatten (to_seq at))
   | T2 (a1, a2, at) ->
-    Seq.cons a1 (Seq.cons a2 (seq_flatten (to_seq at)))
+    seq_cons a1 (seq_cons a2 (seq_flatten (to_seq at)))
   | T3 (a1, a2, a3, at) ->
-    Seq.cons a1 (Seq.cons a2 (Seq.cons a3 (seq_flatten (to_seq at))))
+    seq_cons a1 (seq_cons a2 (seq_cons a3 (seq_flatten (to_seq at))))
   | T4 (a1, a2, a3, a4, at) ->
-    Seq.cons a1 (Seq.cons a2 (Seq.cons a3 (Seq.cons a4 (seq_flatten (to_seq at)))))
+    seq_cons a1 (seq_cons a2 (seq_cons a3 (seq_cons a4 (seq_flatten (to_seq at)))))
 
 let rec seq_rev_flatten : type a. (a * a * a * a) Seq.t -> a Seq.t -> a Seq.t =
   fun seq k () ->
   match seq () with
   | Seq.Nil -> k ()
   | Seq.Cons ((a1, a2, a3, a4), seq') ->
-    Seq.Cons (a4, Seq.cons a3 (Seq.cons a2 (Seq.cons a1 (seq_rev_flatten seq' k))))
+    Seq.Cons (a4, seq_cons a3 (seq_cons a2 (seq_cons a1 (seq_rev_flatten seq' k))))
 
 let rec to_rev_seq : type a. a t -> a Seq.t =
   fun t ->
   match t with
   | T0 -> Seq.empty
   | T1 (a1, at) ->
-    seq_rev_flatten (to_rev_seq at) (Seq.cons a1 Seq.empty)
+    seq_rev_flatten (to_rev_seq at) (seq_cons a1 Seq.empty)
   | T2 (a1, a2, at) ->
-    seq_rev_flatten (to_rev_seq at) (Seq.cons a2 (Seq.cons a1 Seq.empty))
+    seq_rev_flatten (to_rev_seq at) (seq_cons a2 (seq_cons a1 Seq.empty))
   | T3 (a1, a2, a3, at) ->
-    seq_rev_flatten (to_rev_seq at) (Seq.cons a3 (Seq.cons a2 (Seq.cons a1 Seq.empty)))
+    seq_rev_flatten (to_rev_seq at) (seq_cons a3 (seq_cons a2 (seq_cons a1 Seq.empty)))
   | T4 (a1, a2, a3, a4, at) ->
-    seq_rev_flatten (to_rev_seq at) (Seq.cons a4 (Seq.cons a3 (Seq.cons a2 (Seq.cons a1 Seq.empty))))
+    seq_rev_flatten (to_rev_seq at) (seq_cons a4 (seq_cons a3 (seq_cons a2 (seq_cons a1 Seq.empty))))
