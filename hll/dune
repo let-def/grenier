@@ -10,7 +10,7 @@
  (modules test)
  (libraries grenier_hll))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps test.exe)
  (action (run %{deps})))

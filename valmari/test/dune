@@ -12,10 +12,10 @@
  (targets Sample.expected)
  (action (with-stdout-to %{targets} (run ./test.exe %{deps}))))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (action (diff Lex.expected Lex.reference)))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (action (diff Sample.expected Sample.reference)))

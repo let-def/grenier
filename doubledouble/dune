@@ -11,8 +11,8 @@
  (modules test_basic)
  (libraries grenier_doubledouble))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps ./test_basic.exe)
  (action (run %{deps})))
 
@@ -21,8 +21,8 @@
  (modules test_compute)
  (libraries grenier_doubledouble))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps ./test_compute.exe)
  (action (run %{deps})))
 
@@ -31,7 +31,7 @@
  (modules test_io)
  (libraries grenier_doubledouble))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps ./test_io.exe)
  (action (run %{deps})))

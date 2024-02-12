@@ -15,7 +15,7 @@
  (modules test_interval)
  (libraries grenier_orderme unix))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps test_order.exe)
  (action (run %{deps})))

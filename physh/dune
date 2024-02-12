@@ -3,5 +3,5 @@
  (enabled_if (< ocaml_version 5))
  (public_name grenier.physh)
  (wrapped false)
- (c_names ml_physh_map ml_physh_set)
+ (foreign_stubs (language c) (names ml_physh_map ml_physh_set))
  (synopsis "Physical hashtable and hashset"))

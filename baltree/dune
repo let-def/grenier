@@ -10,7 +10,7 @@
  (modules test)
  (libraries grenier_baltree))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (action (run ./test.exe)))
 

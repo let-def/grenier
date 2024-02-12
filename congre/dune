@@ -9,7 +9,7 @@
  (modules test)
  (libraries congre))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps ./test.exe)
  (action (run %{deps})))
