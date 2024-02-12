@@ -1,3 +1,14 @@
+v0.15 Mon Feb 12 15:01:55 CET 2024
+--------------------------
+
+Fix compatibility with OCaml 5:
+- balmap: missing functions (`add_to_list`, `to_list`, `of_list`) contributed by @kit-ty-kate
+- physh: fix compilation with OCaml 5, contributed by @SquidDev
+
+However physh is disabled for now when compiling with OCaml 5. Thorough reviewing is needed to ensure that the current design is safe with the multicore GC (see [#10](https://github.com/let-def/grenier/pull/10)).
+
+Add a new "Congre" library, a fast congruence closure algorithm with support for backtracking and interpretability of equivalence classes.
+
 v0.14 Fri Apr  1 16:18:57 JST 2022
 --------------------------
 
