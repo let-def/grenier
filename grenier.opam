@@ -13,7 +13,7 @@ build: [
 ]
 depends: [
   "ocaml" {>= "4.08"}
-  "dune" {>= "1.10.0"}
+  "dune" {>= "3.0.0"}
 ]
 synopsis: "A collection of various algorithms in OCaml"
 description: """
