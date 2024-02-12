@@ -1,5 +1,6 @@
 (library
  (name physh)
+ (enabled_if (< ocaml_version 5))
  (public_name grenier.physh)
  (wrapped false)
  (c_names ml_physh_map ml_physh_set)
