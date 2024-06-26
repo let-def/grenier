@@ -1,5 +1,11 @@
 module type OrderedType = Stdlib.Set.OrderedType
-module type S = Stdlib.Set.S
+module type S = sig
+  include Stdlib.Set.S
+  val of_bt1 : elt Bt1.t -> t option
+  val rank : int -> t -> elt
+  val rank_of : t -> elt -> int option
+  val to_list : t -> elt list
+end
 
 type +'a balset = 'a Bt1.t = private
   | Leaf
@@ -368,4 +374,46 @@ struct
         Bt1.join l r
 
   let to_list = elements
+
+  let of_bt1 t =
+    let rec validate k = function
+      | Leaf -> k
+      | Node (_, l, k', r) ->
+        let k = validate k l in
+        if O.compare k k' > 0 then
+          raise Exit;
+        validate k' r
+    in
+    let rec validate_fringe = function
+      | Leaf -> None
+      | Node (_, l, k', r) ->
+
+        match validate_fringe l with
+        | None -> Some (validate k' r)
+        | Some k ->
+          if O.compare k k' > 0 then
+            raise Exit;
+          Some (validate k' r)
+    in
+    match validate_fringe t with
+    | (_ : elt option) -> Some t
+    | exception Exit -> None
+
+  let rank = Bt1.rank
+
+  let rank_of t k =
+    let rec aux ofs k = function
+      | Leaf -> None
+      | Node (_, l, k', r) ->
+        let c = O.compare k k' in
+        if c < 0 then
+          aux ofs k l
+        else
+          let ofs = cardinal l + ofs in
+          if c > 0 then
+            aux (ofs + 1) k r
+          else
+            Some ofs
+    in
+    aux 0 k t
 end

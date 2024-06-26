@@ -1,6 +1,14 @@
-
 module type OrderedType = Stdlib.Map.OrderedType
-module type S = Stdlib.Map.S
+
+module type S = sig
+  include Stdlib.Map.S
+  val of_bt2 : (key, 'a) Bt2.t -> 'a t option
+  val rank : int -> 'a t -> key * 'a
+  val rank_of : 'a t -> key -> int option
+  val to_list : 'a t -> (key * 'a) list
+  val of_list : (key * 'a) list -> 'a t
+  val add_to_list : key -> 'a -> 'a list t -> 'a list t
+end
 
 type (+'a, +'b) balmap = ('a, 'b) Bt2.t = private
   | Leaf
@@ -382,4 +390,46 @@ struct
 
   let to_list = bindings
   let of_list bs = List.fold_left (fun m (k, v) -> add k v m) empty bs
+
+  let of_bt2 t =
+    let rec validate k = function
+      | Leaf -> k
+      | Node (_, l, k', _, r) ->
+        let k = validate k l in
+        if O.compare k k' > 0 then
+          raise Exit;
+        validate k' r
+    in
+    let rec validate_fringe = function
+      | Leaf -> None
+      | Node (_, l, k', _, r) ->
+
+        match validate_fringe l with
+        | None -> Some (validate k' r)
+        | Some k ->
+          if O.compare k k' > 0 then
+            raise Exit;
+          Some (validate k' r)
+    in
+    match validate_fringe t with
+    | (_ : key option) -> Some t
+    | exception Exit -> None
+
+  let rank = Bt2.rank
+
+  let rank_of t k =
+    let rec aux ofs k = function
+      | Leaf -> None
+      | Node (_, l, k', _, r) ->
+        let c = O.compare k k' in
+        if c < 0 then
+          aux ofs k l
+        else
+          let ofs = cardinal l + ofs in
+          if c > 0 then
+            aux (ofs + 1) k r
+          else
+            Some ofs
+    in
+    aux 0 k t
 end
