@@ -25,6 +25,7 @@ struct
   let empty = Bt2.leaf
 
   let is_empty = function Leaf -> true | Node _ -> false
+  let is_singleton = function Node (_, Leaf, _, _, Leaf) -> true | Leaf | Node _ -> false
 
   let rec mem k = function
     | Leaf -> false
