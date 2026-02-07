@@ -1,3 +1,10 @@
+v0.16 Sat Feb  7 11:19:53 JST 2026
+--------------------------
+
+Balmap:
+- add `is_singleton` to fix compatibility with OCaml 5.5, contributed by @kit-ty-kate
+- add functions for accessing elements by rank (accessing "n-th" element)
+
 v0.15 Mon Feb 12 15:01:55 CET 2024
 --------------------------
 
