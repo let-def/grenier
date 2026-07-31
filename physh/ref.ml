@@ -1,6 +1,12 @@
 (* Placeholder: replace with your trusted Ref implementation *)
 (* Must conform to the same interface as physh.mli *)
 
+module H = Hashtbl.Make(struct
+               type t = Obj.t
+               let hash = Hashtbl.hash
+               let equal = (==)
+             end)
+
 module Set : sig
   type 'a t
   val create : unit -> 'a t
@@ -8,12 +14,11 @@ module Set : sig
   val mem : 'a t -> 'a -> bool
   val add : 'a t -> 'a -> unit
 end = struct
-  type 'a t = 'a list ref
-  let create () = ref []
-  let length t = List.length !t
-  let mem t x = List.exists (fun y -> x == y) !t
-  let add t x =
-    if not (mem t x) then t := x :: !t
+  type 'a t = unit H.t
+  let create () = H.create 7
+  let length t = H.length t
+  let mem t x = H.mem t (Obj.repr x)
+  let add t x = H.replace t (Obj.repr x) ()
 end
 
 module Map : sig
@@ -23,17 +28,9 @@ module Map : sig
   val find : ('a,'b) t -> 'a -> 'b
   val add : ('a,'b) t -> 'a -> 'b -> unit
 end = struct
-  type ('a,'b) t = ('a * 'b) list ref
-  let create () = ref []
-  let length t = List.length !t
-  let find t k =
-    match List.find_opt (fun (x, _) -> x == k) !t with
-    | Some (_, v) -> v
-    | None -> raise Not_found
-  let add t k v =
-    let entries = List.map (fun (x, w) -> if x == k then (k, v) else (x, w)) !t in
-    if List.exists (fun (x, _) -> x == k) entries then
-      t := entries
-    else
-      t := (k, v) :: entries
+  type ('a,'b) t = 'b H.t
+  let create () = H.create 7
+  let length t = H.length t
+  let find t k = H.find t (Obj.repr k)
+  let add t k v = H.replace t (Obj.repr k) v
 end
