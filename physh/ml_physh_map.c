@@ -287,7 +287,7 @@ static void rehash_major (value t, value null, size_t new_sz)
     if (k == null) continue;
 
     size_t index = table_find(major_new, null, k);
-    assert (Field(major_new, index) == null);
+    assert (Field(major_new, index * 2) == null);
 
     Store_field(major_new, index * 2 + 0, k);
     Store_field(major_new, index * 2 + 1, Field(major_old, i * 2 + 1));
