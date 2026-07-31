@@ -1,6 +1,25 @@
 module P = Physh
 module R = Ref
 
+module D : sig
+  type 'a t
+  type 'a view = Int of int | Obj of 'a
+  val pack : 'a view -> 'a t
+  val unpack : 'a t -> 'a view
+end = struct
+  type 'a view = Int of int | Obj of 'a
+  type 'a t = 'a view
+
+  let pack = function
+    | Int i -> Obj.magic i
+    | Obj _ as x -> x
+
+  let unpack t =
+   if Obj.is_int (Obj.magic t)
+   then Int (Obj.magic t)
+   else t
+end
+
 (*let () = Gc.set { Gc.get () with Gc.minor_heap_size = 1024 * 512 }*)
 
 let test_count = ref 0
