@@ -1,6 +1,12 @@
 (library
  (name physh)
+ (modules physh)
  (public_name grenier.physh)
  (wrapped false)
  (foreign_stubs (language c) (names ml_physh_map ml_physh_set))
  (synopsis "Physical hashtable and hashset"))
+
+(executable
+ (name test_physh)
+ (modules test_physh ref)
+ (libraries physh))
