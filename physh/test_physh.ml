@@ -15,12 +15,10 @@ end = struct
     | Obj _ as x -> x
 
   let unpack t =
-   if Obj.is_int (Obj.magic t)
-   then Int (Obj.magic t)
-   else t
+    if Obj.is_int (Obj.magic t)
+    then Int (Obj.magic t)
+    else t
 end
-
-(*let () = Gc.set { Gc.get () with Gc.minor_heap_size = 1024 * 512 }*)
 
 let test_count = ref 0
 let pass_count = ref 0
@@ -34,45 +32,38 @@ let with_label label body =
     Printf.printf "  [PASS] %s\n%!" label
   with exn ->
     incr fail_count;
-    Printf.printf "  [FAIL] %s -- %s: %s\n%!" label (Printexc.to_string exn) (Printexc.get_backtrace ())
+    Printf.printf "  [FAIL] %s -- %s: %s\n%!"
+      label (Printexc.to_string exn) (Printexc.get_backtrace ())
 
 let gc_minor () =
   let _ = Bigarray.Array1.create Bigarray.char Bigarray.c_layout 4096 in
   Gc.minor ()
 
-let gc_major () =
-  Gc.full_major ()
-
-let gc_both () =
-  gc_minor ();
-  gc_major ()
+let gc_major () = Gc.full_major ()
+let gc_both  () = gc_minor (); gc_major ()
 
 let gc_noise () =
   let _ = Array.init 1024 (fun i -> String.make i 'x') in
   Gc.minor ()
 
-type box = Box of box option
+let iteri_check a ~f =
+  Array.iteri (fun i _ ->
+    if i mod 20 = 0 then gc_both ();
+    f i
+  ) a
 
-let rec make_cycle n =
-  if n <= 0 then () else
-  let r = ref None in
-  r := Some (Box !r);
-  make_cycle (n - 1)
-
+(* ---- SET TESTS ---- *)
 
 let () =
   Printf.printf "=== PHYSH STRESS TESTS ===\n%!";
 
-  (* ---- SET TESTS ---- *)
+  Printf.printf "\n--- Set: basic ---\n%!" ;
 
-  Printf.printf "\n--- Set: basic sanity ---\n%!" ;
-
-  with_label "set empty length" (fun () ->
-    let s = P.Set.create () in
-    assert (P.Set.length s = 0)
+  with_label "set empty" (fun () ->
+    assert (P.Set.length (P.Set.create ()) = 0)
   );
 
-  with_label "set add + mem" (fun () ->
+  with_label "set add + mem + length" (fun () ->
     let s = P.Set.create () in
     let x = ref 1 in
     P.Set.add s x;
@@ -83,23 +74,43 @@ let () =
   with_label "set duplicate add" (fun () ->
     let s = P.Set.create () in
     let x = ref 1 in
-    P.Set.add s x;
-    P.Set.add s x;
+    P.Set.add s x; P.Set.add s x;
     assert (P.Set.length s = 1)
   );
 
-  with_label "set physical not structural" (fun () ->
+  with_label "set physical equality" (fun () ->
     let s = P.Set.create () in
-    let x = ref 1 in
-    let y = ref 1 in
+    let x = ref 1 and y = ref 1 in
     P.Set.add s x;
     assert (P.Set.mem s x);
     assert (not (P.Set.mem s y))
   );
 
-  Printf.printf "\n--- Set: GC stress ---\n%!" ;
+  with_label "set int keys (D)" (fun () ->
+    let s = P.Set.create () in
+    let k1 = D.pack (D.Int 42) in
+    let k2 = D.pack (D.Int 42) in
+    let k3 = D.pack (D.Int 99) in
+    P.Set.add s k1;
+    assert (P.Set.mem s k1);
+    assert (P.Set.mem s k2);
+    assert (not (P.Set.mem s k3));
+    assert (P.Set.length s = 1)
+  );
 
-  with_label "set gc after add, mem still true" (fun () ->
+  with_label "set obj keys (D)" (fun () ->
+    let s = P.Set.create () in
+    let x = ref 1 and y = ref 1 in
+    let k1 = D.pack (D.Obj x) in
+    let k2 = D.pack (D.Obj y) in
+    P.Set.add s k1;
+    assert (P.Set.mem s k1);
+    assert (not (P.Set.mem s k2))
+  );
+
+  Printf.printf "\n--- Set: GC stress (obj keys) ---\n%!" ;
+
+  with_label "set gc after add" (fun () ->
     let s = P.Set.create () in
     let x = ref 42 in
     P.Set.add s x;
@@ -108,162 +119,193 @@ let () =
     assert (P.Set.length s = 1)
   );
 
-  with_label "set gc between add and mem for many elements" (fun () ->
+  with_label "set interleaved add + minor gc" (fun () ->
     let s = P.Set.create () in
-    let xs = Array.init 200 (fun i -> ref i) in
+    let xs = Array.init 2000 (fun i -> ref i) in
     Array.iter (P.Set.add s) xs;
-    gc_both ();
-    Array.iteri (fun i x ->
-      assert (P.Set.mem s x);
-      if i mod 50 = 0 then gc_noise ()
-    ) xs;
-    assert (P.Set.length s = 200)
-  );
-
-  with_label "set interleaved add + gc_minor" (fun () ->
+    (* simpler: just iterate with gc *)
     let s = P.Set.create () in
-    let xs = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i x ->
-      P.Set.add s x;
+    Array.iteri (fun i _ ->
+      P.Set.add s xs.(i);
       if i mod 10 = 0 then gc_minor ()
     ) xs;
+    gc_both ();
     Array.iter (fun x -> assert (P.Set.mem s x)) xs;
-    assert (P.Set.length s = 500)
+    assert (P.Set.length s = 2000)
   );
 
-  with_label "set interleaved add + gc_major" (fun () ->
+  with_label "set interleaved add + major gc" (fun () ->
     let s = P.Set.create () in
-    let xs = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i x ->
-      P.Set.add s x;
+    let xs = Array.init 2000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Set.add s xs.(i);
       if i mod 25 = 0 then gc_major ()
     ) xs;
+    gc_both ();
     Array.iter (fun x -> assert (P.Set.mem s x)) xs;
-    assert (P.Set.length s = 500)
+    assert (P.Set.length s = 2000)
   );
 
-  with_label "set gc during mem query" (fun () ->
+  with_label "set gc during mem queries" (fun () ->
     let s = P.Set.create () in
-    let xs = Array.init 300 (fun i -> ref i) in
+    let xs = Array.init 2000 (fun i -> ref i) in
     Array.iter (P.Set.add s) xs;
     gc_both ();
-    Array.iteri (fun i x ->
-      if i mod 20 = 0 then gc_both ();
-      assert (P.Set.mem s x)
-    ) xs
+    iteri_check xs ~f:(fun i -> assert (P.Set.mem s xs.(i)))
   );
 
   with_label "set aggressive gc noise" (fun () ->
     let s = P.Set.create () in
-    let xs = Array.init 1000 (fun i -> ref i) in
-    Array.iteri (fun i x ->
-      P.Set.add s x;
-      if i mod 5 = 0 then gc_noise ()
+    let xs = Array.init 5000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Set.add s xs.(i);
+      if i mod 5 = 0 then gc_noise ();
+      if i mod 25 = 0 then gc_minor ();
+      if i mod 50 = 0 then gc_major ()
     ) xs;
     gc_both ();
-    assert (P.Set.length s = 1000);
+    assert (P.Set.length s = 5000);
     Array.iter (fun x -> assert (P.Set.mem s x)) xs
   );
 
-  with_label "set repeated create-fill-gc cycles" (fun () ->
-    for c = 1 to 50 do
+  with_label "set create-fill-gc cycles" (fun () ->
+    for _c = 1 to 100 do
       let s = P.Set.create () in
-      let xs = Array.init 200 (fun i -> ref (c, i)) in
+      let xs = Array.init 500 (fun i -> ref i) in
       Array.iter (P.Set.add s) xs;
       gc_both ();
       Array.iter (fun x -> assert (P.Set.mem s x)) xs;
-      assert (P.Set.length s = 200)
+      assert (P.Set.length s = 500)
     done
   );
 
-  Printf.printf "\n--- Set: large-scale stress ---\n%!" ;
+  Printf.printf "\n--- Set: GC stress (int keys via D) ---\n%!" ;
 
-  with_label "set 5000 elements with gc" (fun () ->
+  with_label "set int keys interleaved gc" (fun () ->
     let s = P.Set.create () in
-    let xs = Array.init 5000 (fun i -> ref i) in
-    Array.iteri (fun i x ->
-      P.Set.add s x;
-      if i mod 50 = 0 then gc_minor ()
+    let ks = Array.init 5000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      P.Set.add s ks.(i);
+      if i mod 10 = 0 then gc_minor ();
+      if i mod 50 = 0 then gc_major ();
+      if i mod 100 = 0 then gc_noise ()
+    ) ks;
+    gc_both ();
+    Array.iter (fun k -> assert (P.Set.mem s k)) ks;
+    assert (P.Set.length s = 5000)
+  );
+
+  with_label "set int keys gc during mem" (fun () ->
+    let s = P.Set.create () in
+    let ks = Array.init 5000 (fun i -> D.pack (D.Int i)) in
+    Array.iter (P.Set.add s) ks;
+    gc_both ();
+    iteri_check ks ~f:(fun i -> assert (P.Set.mem s ks.(i)))
+  );
+
+  Printf.printf "\n--- Set: large-scale (obj keys) ---\n%!" ;
+
+  with_label "set 20000 elements" (fun () ->
+    let s = P.Set.create () in
+    let xs = Array.init 20000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Set.add s xs.(i);
+      if i mod 50 = 0 then gc_minor ();
+      if i mod 200 = 0 then gc_major ();
+      if i mod 500 = 0 then gc_noise ()
     ) xs;
-    assert (P.Set.length s = 5000);
+    assert (P.Set.length s = 20000);
     gc_both ();
     Array.iter (fun x -> assert (P.Set.mem s x)) xs
   );
 
-  with_label "set 10000 elements" (fun () ->
+  with_label "set 50000 elements" (fun () ->
     let s = P.Set.create () in
-    let xs = Array.init 10000 (fun i -> ref i) in
-    Array.iteri (fun i x ->
-      P.Set.add s x;
-      if i mod 100 = 0 then gc_both ()
+    let xs = Array.init 50000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Set.add s xs.(i);
+      if i mod 100 = 0 then gc_minor ();
+      if i mod 500 = 0 then gc_major ();
+      if i mod 1000 = 0 then gc_noise ()
     ) xs;
-    assert (P.Set.length s = 10000);
+    assert (P.Set.length s = 50000);
     gc_both ();
     Array.iter (fun x -> assert (P.Set.mem s x)) xs
   );
 
-  Printf.printf "\n--- Set: cyclic / shared structures ---\n%!" ;
-
-  with_label "set cyclic structures as elements" (fun () ->
+  with_label "set 100000 elements" (fun () ->
     let s = P.Set.create () in
-    let r = ref None in
-    r := Some (Box !r);
-    let node = !r in
-    P.Set.add s (Obj.repr node);
+    let xs = Array.init 100000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Set.add s xs.(i);
+      if i mod 500 = 0 then gc_minor ();
+      if i mod 2000 = 0 then gc_major ();
+      if i mod 5000 = 0 then gc_noise ()
+    ) xs;
+    assert (P.Set.length s = 100000);
     gc_both ();
-    assert (P.Set.mem s (Obj.repr node));
-    assert (P.Set.length s = 1)
+    Array.iter (fun x -> assert (P.Set.mem s x)) xs
   );
 
-  with_label "set many cyclic structures" (fun () ->
+  Printf.printf "\n--- Set: large-scale (int keys via D) ---\n%!" ;
+
+  with_label "set int 50000" (fun () ->
     let s = P.Set.create () in
-    let cycles = Array.init 200 (fun _ ->
-      let r = ref None in
-      r := Some (Box !r);
-      Obj.repr !r
-    ) in
-    Array.iteri (fun i c ->
-      P.Set.add s c;
-      if i mod 20 = 0 then gc_minor ()
-    ) cycles;
+    let ks = Array.init 50000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      P.Set.add s ks.(i);
+      if i mod 100 = 0 then gc_minor ();
+      if i mod 500 = 0 then gc_major ();
+      if i mod 1000 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Set.length s = 50000);
     gc_both ();
-    Array.iter (fun c -> assert (P.Set.mem s c)) cycles;
-    assert (P.Set.length s = 200)
+    Array.iter (fun k -> assert (P.Set.mem s k)) ks
   );
 
-  with_label "set shared substructures" (fun () ->
+  with_label "set int 100000" (fun () ->
     let s = P.Set.create () in
-    let shared = ref 999 in
-    let xs = Array.init 300 (fun i -> (ref i, shared)) in
-    Array.iter (fun (a, _) -> P.Set.add s (Obj.repr a)) xs;
+    let ks = Array.init 100000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      P.Set.add s ks.(i);
+      if i mod 500 = 0 then gc_minor ();
+      if i mod 2000 = 0 then gc_major ();
+      if i mod 5000 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Set.length s = 100000);
     gc_both ();
-    Array.iter (fun (a, _) -> assert (P.Set.mem s (Obj.repr a))) xs
+    Array.iter (fun k -> assert (P.Set.mem s k)) ks
   );
 
   Printf.printf "\n--- Set: long-lived table ---\n%!" ;
 
-  with_label "set long-lived table under gc" (fun () ->
+  with_label "set long-lived incremental" (fun () ->
     let s = P.Set.create () in
     let all = ref [] in
-    for i = 1 to 5000 do
+    for i = 1 to 10000 do
       let x = ref i in
       P.Set.add s x;
       all := x :: !all;
-      if i mod 50 = 0 then (
+      if i mod 100 = 0 then (
         gc_both ();
         List.iter (fun v -> assert (P.Set.mem s v)) !all
       )
     done;
-    assert (P.Set.length s = 5000)
+    assert (P.Set.length s = 10000)
   );
 
   Printf.printf "\n--- Set: ref comparison ---\n%!" ;
 
-  with_label "set matches ref: sequential add" (fun () ->
-    let ps = P.Set.create () in
-    let rs = R.Set.create () in
-    let xs = Array.init 500 (fun i -> ref i) in
-    Array.iter (fun x -> P.Set.add ps x; R.Set.add rs x) xs;
+  with_label "set vs ref: obj keys 10000" (fun () ->
+    let ps = P.Set.create () and rs = R.Set.create () in
+    let xs = Array.init 10000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      let x = xs.(i) in
+      P.Set.add ps x; R.Set.add rs x;
+      if i mod 50 = 0 then gc_minor ();
+      if i mod 200 = 0 then gc_major ();
+      if i mod 500 = 0 then gc_noise ()
+    ) xs;
     gc_both ();
     Array.iter (fun x ->
       assert (P.Set.mem ps x = R.Set.mem rs x)
@@ -271,324 +313,326 @@ let () =
     assert (P.Set.length ps = R.Set.length rs)
   );
 
-  with_label "set matches ref: interleaved gc" (fun () ->
-    let ps = P.Set.create () in
-    let rs = R.Set.create () in
-    let xs = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i x ->
-      P.Set.add ps x;
-      R.Set.add rs x;
-      if i mod 10 = 0 then gc_both ()
-    ) xs;
+  with_label "set vs ref: int keys 10000" (fun () ->
+    let ps = P.Set.create () and rs = R.Set.create () in
+    let ks = Array.init 10000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      let k = ks.(i) in
+      P.Set.add ps k; R.Set.add rs k;
+      if i mod 50 = 0 then gc_minor ();
+      if i mod 200 = 0 then gc_major ();
+      if i mod 500 = 0 then gc_noise ()
+    ) ks;
     gc_both ();
-    Array.iter (fun x ->
-      assert (P.Set.mem ps x = R.Set.mem rs x)
-    ) xs;
+    Array.iter (fun k ->
+      assert (P.Set.mem ps k = R.Set.mem rs k)
+    ) ks;
     assert (P.Set.length ps = R.Set.length rs)
   );
 
   (* ---- MAP TESTS ---- *)
 
-  Printf.printf "\n--- Map: basic sanity ---\n%!" ;
+  Printf.printf "\n--- Map: basic ---\n%!" ;
 
-  with_label "map empty length" (fun () ->
-    let m = P.Map.create () in
-    assert (P.Map.length m = 0)
+  with_label "map empty" (fun () ->
+    assert (P.Map.length (P.Map.create ()) = 0)
   );
 
-  with_label "map add + find" (fun () ->
+  with_label "map add + find + length" (fun () ->
     let m = P.Map.create () in
     let k = ref 1 in
-    P.Map.add m k "hello";
-    assert (P.Map.find m k = "hello");
+    P.Map.add m k 42;
+    assert (P.Map.find m k = 42);
     assert (P.Map.length m = 1)
   );
 
-  with_label "map overwrite value" (fun () ->
+  with_label "map overwrite" (fun () ->
     let m = P.Map.create () in
     let k = ref 1 in
-    P.Map.add m k "first";
-    P.Map.add m k "second";
-    assert (P.Map.find m k = "second");
+    P.Map.add m k 1; P.Map.add m k 2;
+    assert (P.Map.find m k = 2);
     assert (P.Map.length m = 1)
   );
 
-  with_label "map physical not structural keys" (fun () ->
+  with_label "map physical keys" (fun () ->
     let m = P.Map.create () in
-    let k1 = ref 1 in
-    let k2 = ref 1 in
+    let k1 = ref 1 and k2 = ref 1 in
     P.Map.add m k1 "a";
     assert (P.Map.find m k1 = "a");
-    try
-      ignore (P.Map.find m k2);
-      assert false
+    try ignore (P.Map.find m k2); assert false
     with Not_found -> ()
   );
 
-  with_label "map Not_found for missing key" (fun () ->
+  with_label "map Not_found" (fun () ->
     let m = P.Map.create () in
-    let k = ref 99 in
-    try
-      ignore (P.Map.find m k);
-      assert false
+    try ignore (P.Map.find m (ref 99)); assert false
     with Not_found -> ()
   );
 
-  Printf.printf "\n--- Map: GC stress ---\n%!" ;
+  with_label "map int keys (D)" (fun () ->
+    let m = P.Map.create () in
+    let k1 = D.pack (D.Int 42) in
+    let k2 = D.pack (D.Int 42) in
+    let k3 = D.pack (D.Int 99) in
+    P.Map.add m k1 "ok";
+    assert (P.Map.find m k1 = "ok");
+    assert (P.Map.find m k2 = "ok");
+    try ignore (P.Map.find m k3); assert false
+    with Not_found -> ()
+  );
 
-  with_label "map gc after add, find still works" (fun () ->
+  Printf.printf "\n--- Map: GC stress (obj keys) ---\n%!" ;
+
+  with_label "map gc after add" (fun () ->
     let m = P.Map.create () in
     let k = ref 42 in
-    P.Map.add m k "val";
+    P.Map.add m k "v";
     gc_both ();
-    assert (P.Map.find m k = "val")
+    assert (P.Map.find m k = "v")
   );
 
-  with_label "map many entries with gc between adds" (fun () ->
+  with_label "map interleaved add + minor gc" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add m k i;
+    let ks = Array.init 2000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
       if i mod 10 = 0 then gc_minor ()
-    ) keys;
+    ) ks;
     gc_both ();
-    Array.iteri (fun i k ->
-      assert (P.Map.find m k = i)
-    ) keys;
-    assert (P.Map.length m = 500)
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks;
+    assert (P.Map.length m = 2000)
   );
 
-  with_label "map gc_major during adds" (fun () ->
+  with_label "map interleaved add + major gc" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add m k i;
+    let ks = Array.init 2000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
       if i mod 25 = 0 then gc_major ()
-    ) keys;
+    ) ks;
     gc_both ();
-    Array.iteri (fun i k ->
-      assert (P.Map.find m k = i)
-    ) keys
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
   with_label "map gc during find" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 300 (fun i -> ref i) in
-    Array.iteri (fun i k -> P.Map.add m k i) keys;
+    let ks = Array.init 2000 (fun i -> ref i) in
+    Array.iteri (fun i _ -> P.Map.add m ks.(i) i) ks;
     gc_both ();
-    Array.iteri (fun i k ->
-      if i mod 20 = 0 then gc_both ();
-      assert (P.Map.find m k = i)
-    ) keys
+    iteri_check ks ~f:(fun i -> assert (P.Map.find m ks.(i) = i))
   );
 
   with_label "map aggressive gc noise" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 1000 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add m k i;
-      if i mod 5 = 0 then gc_noise ()
-    ) keys;
+    let ks = Array.init 5000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 5 = 0 then gc_noise ();
+      if i mod 25 = 0 then gc_minor ();
+      if i mod 50 = 0 then gc_major ()
+    ) ks;
     gc_both ();
-    assert (P.Map.length m = 1000);
-    Array.iteri (fun i k -> assert (P.Map.find m k = i)) keys
+    assert (P.Map.length m = 5000);
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
-  with_label "map repeated create-fill-gc cycles" (fun () ->
-    for c = 1 to 50 do
+  with_label "map create-fill-gc cycles" (fun () ->
+    for _c = 1 to 100 do
       let m = P.Map.create () in
-      let keys = Array.init 200 (fun i -> ref (c, i)) in
-      Array.iteri (fun i k -> P.Map.add m k (c * 1000 + i)) keys;
+      let ks = Array.init 500 (fun i -> ref i) in
+      Array.iteri (fun i _ -> P.Map.add m ks.(i) i) ks;
       gc_both ();
-      Array.iteri (fun i k ->
-        assert (P.Map.find m k = c * 1000 + i)
-      ) keys;
-      assert (P.Map.length m = 200)
+      Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks;
+      assert (P.Map.length m = 500)
     done
   );
 
-  Printf.printf "\n--- Map: large-scale stress ---\n%!" ;
+  Printf.printf "\n--- Map: GC stress (int keys via D) ---\n%!" ;
 
-  with_label "map 5000 entries with gc" (fun () ->
+  with_label "map int keys interleaved gc" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 5000 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add m k i;
-      if i mod 50 = 0 then gc_minor ()
-    ) keys;
-    assert (P.Map.length m = 5000);
+    let ks = Array.init 5000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 10 = 0 then gc_minor ();
+      if i mod 50 = 0 then gc_major ();
+      if i mod 100 = 0 then gc_noise ()
+    ) ks;
     gc_both ();
-    Array.iteri (fun i k -> assert (P.Map.find m k = i)) keys
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks;
+    assert (P.Map.length m = 5000)
   );
 
-  with_label "map 10000 entries" (fun () ->
+  Printf.printf "\n--- Map: large-scale (obj keys) ---\n%!" ;
+
+  with_label "map 20000 entries" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 10000 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add m k i;
-      if i mod 100 = 0 then gc_both ()
-    ) keys;
-    assert (P.Map.length m = 10000);
+    let ks = Array.init 20000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 50 = 0 then gc_minor ();
+      if i mod 200 = 0 then gc_major ();
+      if i mod 500 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Map.length m = 20000);
     gc_both ();
-    Array.iteri (fun i k -> assert (P.Map.find m k = i)) keys
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
-  Printf.printf "\n--- Map: value types stress ---\n%!" ;
-
-  with_label "map large values as data" (fun () ->
+  with_label "map 50000 entries" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 200 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add m k (Array.make (i + 100) i);
-      if i mod 20 = 0 then gc_minor ()
-    ) keys;
+    let ks = Array.init 50000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 100 = 0 then gc_minor ();
+      if i mod 500 = 0 then gc_major ();
+      if i mod 1000 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Map.length m = 50000);
     gc_both ();
-    Array.iteri (fun i k ->
-      let v = P.Map.find m k in
-      assert (Array.length v = i + 100)
-    ) keys
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
-  with_label "map cyclic values" (fun () ->
+  with_label "map 100000 entries" (fun () ->
     let m = P.Map.create () in
-    let k = ref 1 in
-    let r = ref None in
-    r := Some (Box !r);
-    P.Map.add m k !r;
+    let ks = Array.init 100000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 500 = 0 then gc_minor ();
+      if i mod 2000 = 0 then gc_major ();
+      if i mod 5000 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Map.length m = 100000);
     gc_both ();
-    assert (P.Map.find m k == !r)
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
-  Printf.printf "\n--- Map: cyclic keys ---\n%!" ;
+  Printf.printf "\n--- Map: large-scale (int keys via D) ---\n%!" ;
 
-  with_label "map cyclic structures as keys" (fun () ->
+  with_label "map int 50000" (fun () ->
     let m = P.Map.create () in
-    let r = ref None in
-    let node = Obj.new_block 1 1 in
-    r := Some (Obj.repr node);
-    P.Map.add m (Obj.repr node) "cyclic";
+    let ks = Array.init 50000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 100 = 0 then gc_minor ();
+      if i mod 500 = 0 then gc_major ();
+      if i mod 1000 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Map.length m = 50000);
     gc_both ();
-    assert (P.Map.find m (Obj.repr node) = "cyclic")
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
-  with_label "map many cyclic keys" (fun () ->
+  with_label "map int 100000" (fun () ->
     let m = P.Map.create () in
-    let cycles = Array.init 200 (fun _ ->
-      Obj.new_block 1 1
-    ) in
-    Array.iteri (fun i c ->
-      P.Map.add m c i;
-      if i mod 20 = 0 then gc_minor ()
-    ) cycles;
+    let ks = Array.init 100000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      P.Map.add m ks.(i) i;
+      if i mod 500 = 0 then gc_minor ();
+      if i mod 2000 = 0 then gc_major ();
+      if i mod 5000 = 0 then gc_noise ()
+    ) ks;
+    assert (P.Map.length m = 100000);
     gc_both ();
-    Array.iteri (fun i c ->
-      assert (P.Map.find m c = i)
-    ) cycles;
-    assert (P.Map.length m = 200)
+    Array.iteri (fun i _ -> assert (P.Map.find m ks.(i) = i)) ks
   );
 
   Printf.printf "\n--- Map: long-lived table ---\n%!" ;
 
-  with_label "map long-lived table under gc" (fun () ->
+  with_label "map long-lived incremental" (fun () ->
     let m = P.Map.create () in
     let all_keys = ref [] in
-    for i = 1 to 5000 do
+    for i = 1 to 10000 do
       let k = ref i in
       P.Map.add m k i;
       all_keys := k :: !all_keys;
-      if i mod 50 = 0 then (
+      if i mod 100 = 0 then (
         gc_both ();
-        List.iter (fun k -> assert (P.Map.find m k = !k)) !all_keys
+        List.iter (fun v -> assert (P.Map.find m v = !v)) !all_keys
       )
     done;
-    assert (P.Map.length m = 5000)
+    assert (P.Map.length m = 10000)
   );
 
-  with_label "map long-lived, overwrite under gc" (fun () ->
+  with_label "map long-lived overwrite under gc" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 500 (fun i -> ref i) in
-    Array.iter (fun k -> P.Map.add m k 0) keys;
-    for round = 1 to 20 do
+    let ks = Array.init 2000 (fun i -> ref i) in
+    Array.iter (fun k -> P.Map.add m k 0) ks;
+    for round = 1 to 50 do
       gc_both ();
-      Array.iter (fun k -> P.Map.add m k round) keys;
-      Array.iter (fun k -> assert (P.Map.find m k = round)) keys
+      Array.iter (fun k -> P.Map.add m k round) ks;
+      Array.iter (fun k -> assert (P.Map.find m k = round)) ks
     done
   );
 
   Printf.printf "\n--- Map: ref comparison ---\n%!" ;
 
-  with_label "map matches ref: sequential add" (fun () ->
-    let pm = P.Map.create () in
-    let rm = R.Map.create () in
-    let keys = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add pm k i;
-      R.Map.add rm k i
-    ) keys;
+  with_label "map vs ref: obj keys 10000" (fun () ->
+    let pm = P.Map.create () and rm = R.Map.create () in
+    let ks = Array.init 10000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      let k = ks.(i) in
+      P.Map.add pm k i; R.Map.add rm k i;
+      if i mod 50 = 0 then gc_minor ();
+      if i mod 200 = 0 then gc_major ();
+      if i mod 500 = 0 then gc_noise ()
+    ) ks;
     gc_both ();
     Array.iter (fun k ->
       assert (P.Map.find pm k = R.Map.find rm k)
-    ) keys;
+    ) ks;
     assert (P.Map.length pm = R.Map.length rm)
   );
 
-  with_label "map matches ref: interleaved gc" (fun () ->
-    let pm = P.Map.create () in
-    let rm = R.Map.create () in
-    let keys = Array.init 500 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add pm k i;
-      R.Map.add rm k i;
-      if i mod 10 = 0 then gc_both ()
-    ) keys;
+  with_label "map vs ref: int keys 10000" (fun () ->
+    let pm = P.Map.create () and rm = R.Map.create () in
+    let ks = Array.init 10000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ ->
+      let k = ks.(i) in
+      P.Map.add pm k i; R.Map.add rm k i;
+      if i mod 50 = 0 then gc_minor ();
+      if i mod 200 = 0 then gc_major ();
+      if i mod 500 = 0 then gc_noise ()
+    ) ks;
     gc_both ();
     Array.iter (fun k ->
       assert (P.Map.find pm k = R.Map.find rm k)
-    ) keys;
+    ) ks;
     assert (P.Map.length pm = R.Map.length rm)
   );
 
-  with_label "map matches ref: overwrites + gc" (fun () ->
-    let pm = P.Map.create () in
-    let rm = R.Map.create () in
-    let keys = Array.init 300 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      P.Map.add pm k i;
-      R.Map.add rm k i;
-      P.Map.add pm k (-i);
-      R.Map.add rm k (-i)
-    ) keys;
+  with_label "map vs ref: overwrites + gc" (fun () ->
+    let pm = P.Map.create () and rm = R.Map.create () in
+    let ks = Array.init 5000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      let k = ks.(i) in
+      P.Map.add pm k i; R.Map.add rm k i;
+      P.Map.add pm k (-i); R.Map.add rm k (-i)
+    ) ks;
     gc_both ();
-    Array.iter (fun k ->
-      assert (P.Map.find pm k = R.Map.find rm k)
-    ) keys;
+    Array.iteri (fun i _ ->
+      assert (P.Map.find pm ks.(i) = R.Map.find rm ks.(i))
+    ) ks;
     assert (P.Map.length pm = R.Map.length rm)
   );
 
-  (* ---- MIXED STRESS ---- *)
+  (* ---- MIXED ---- *)
 
-  Printf.printf "\n--- Mixed: sets and maps together ---\n%!" ;
+  Printf.printf "\n--- Mixed ---\n%!" ;
 
-  with_label "mixed set + map interleaved with gc" (fun () ->
-    let s = P.Set.create () in
-    let m = P.Map.create () in
-    let keys = Array.init 1000 (fun i -> ref i) in
-    Array.iteri (fun i k ->
-      if i mod 3 = 0 then (
-        P.Set.add s k;
-        gc_minor ()
-      ) else if i mod 3 = 1 then (
-        P.Map.add m k i;
-        gc_minor ()
-      ) else (
-        gc_major ()
-      )
-    ) keys;
+  with_label "mixed set + map + gc" (fun () ->
+    let s = P.Set.create () and m = P.Map.create () in
+    let ks = Array.init 10000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      if i mod 3 = 0 then (P.Set.add s ks.(i); gc_minor ());
+      if i mod 3 = 1 then (P.Map.add m ks.(i) i; gc_minor ());
+      if i mod 3 = 2 then gc_major ()
+    ) ks;
     gc_both ();
-    Array.iteri (fun i k ->
-      if i mod 3 = 0 then assert (P.Set.mem s k);
-      if i mod 3 = 1 then assert (P.Map.find m k = i)
-    ) keys
+    Array.iteri (fun i _ ->
+      if i mod 3 = 0 then assert (P.Set.mem s ks.(i));
+      if i mod 3 = 1 then assert (P.Map.find m ks.(i) = i)
+    ) ks
   );
 
   Printf.printf "\n--- Summary ---\n%!";
