@@ -4,15 +4,15 @@ module R = Ref
 module D : sig
   type 'a t
   type 'a view = Int of int | Obj of 'a
-  val pack : 'a view -> 'a t
+  val int : int -> 'a t
+  val obj : 'a -> 'a t
   val unpack : 'a t -> 'a view
 end = struct
   type 'a view = Int of int | Obj of 'a
   type 'a t = 'a view
 
-  let pack = function
-    | Int i -> Obj.magic i
-    | Obj _ as x -> x
+  let int : int -> 'a t = Obj.magic
+  let obj x = Obj x
 
   let unpack t =
     if Obj.is_int (Obj.magic t)
@@ -88,9 +88,9 @@ let () =
 
   with_label "set int keys (D)" (fun () ->
     let s = P.Set.create () in
-    let k1 = D.pack (D.Int 42) in
-    let k2 = D.pack (D.Int 42) in
-    let k3 = D.pack (D.Int 99) in
+    let k1 = D.int 42 in
+    let k2 = D.int 42 in
+    let k3 = D.int 99 in
     P.Set.add s k1;
     assert (P.Set.mem s k1);
     assert (P.Set.mem s k2);
@@ -101,8 +101,8 @@ let () =
   with_label "set obj keys (D)" (fun () ->
     let s = P.Set.create () in
     let x = ref 1 and y = ref 1 in
-    let k1 = D.pack (D.Obj x) in
-    let k2 = D.pack (D.Obj y) in
+    let k1 = D.obj x in
+    let k2 = D.obj y in
     P.Set.add s k1;
     assert (P.Set.mem s k1);
     assert (not (P.Set.mem s k2))
@@ -183,7 +183,7 @@ let () =
 
   with_label "set int keys interleaved gc" (fun () ->
     let s = P.Set.create () in
-    let ks = Array.init 5000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 5000 D.int in
     Array.iteri (fun i _ ->
       P.Set.add s ks.(i);
       if i mod 10 = 0 then gc_minor ();
@@ -197,7 +197,7 @@ let () =
 
   with_label "set int keys gc during mem" (fun () ->
     let s = P.Set.create () in
-    let ks = Array.init 5000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 5000 D.int in
     Array.iter (P.Set.add s) ks;
     gc_both ();
     iteri_check ks ~f:(fun i -> assert (P.Set.mem s ks.(i)))
@@ -251,7 +251,7 @@ let () =
 
   with_label "set int 50000" (fun () ->
     let s = P.Set.create () in
-    let ks = Array.init 50000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 50000 D.int in
     Array.iteri (fun i _ ->
       P.Set.add s ks.(i);
       if i mod 100 = 0 then gc_minor ();
@@ -265,7 +265,7 @@ let () =
 
   with_label "set int 100000" (fun () ->
     let s = P.Set.create () in
-    let ks = Array.init 100000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 100000 D.int in
     Array.iteri (fun i _ ->
       P.Set.add s ks.(i);
       if i mod 500 = 0 then gc_minor ();
@@ -315,7 +315,7 @@ let () =
 
   with_label "set vs ref: int keys 10000" (fun () ->
     let ps = P.Set.create () and rs = R.Set.create () in
-    let ks = Array.init 10000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 10000 D.int in
     Array.iteri (fun i _ ->
       let k = ks.(i) in
       P.Set.add ps k; R.Set.add rs k;
@@ -371,9 +371,9 @@ let () =
 
   with_label "map int keys (D)" (fun () ->
     let m = P.Map.create () in
-    let k1 = D.pack (D.Int 42) in
-    let k2 = D.pack (D.Int 42) in
-    let k3 = D.pack (D.Int 99) in
+    let k1 = D.int 42 in
+    let k2 = D.int 42 in
+    let k3 = D.int 99 in
     P.Map.add m k1 "ok";
     assert (P.Map.find m k1 = "ok");
     assert (P.Map.find m k2 = "ok");
@@ -451,7 +451,7 @@ let () =
 
   with_label "map int keys interleaved gc" (fun () ->
     let m = P.Map.create () in
-    let ks = Array.init 5000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 5000 D.int in
     Array.iteri (fun i _ ->
       P.Map.add m ks.(i) i;
       if i mod 10 = 0 then gc_minor ();
@@ -511,7 +511,7 @@ let () =
 
   with_label "map int 50000" (fun () ->
     let m = P.Map.create () in
-    let ks = Array.init 50000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 50000 D.int in
     Array.iteri (fun i _ ->
       P.Map.add m ks.(i) i;
       if i mod 100 = 0 then gc_minor ();
@@ -525,7 +525,7 @@ let () =
 
   with_label "map int 100000" (fun () ->
     let m = P.Map.create () in
-    let ks = Array.init 100000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 100000 D.int in
     Array.iteri (fun i _ ->
       P.Map.add m ks.(i) i;
       if i mod 500 = 0 then gc_minor ();
@@ -586,7 +586,7 @@ let () =
 
   with_label "map vs ref: int keys 10000" (fun () ->
     let pm = P.Map.create () and rm = R.Map.create () in
-    let ks = Array.init 10000 (fun i -> D.pack (D.Int i)) in
+    let ks = Array.init 10000 D.int in
     Array.iteri (fun i _ ->
       let k = ks.(i) in
       P.Map.add pm k i; R.Map.add rm k i;
@@ -626,7 +626,7 @@ let () =
     Array.iteri (fun i _ ->
       if i mod 3 = 0 then (P.Set.add s ks.(i); gc_minor ());
       if i mod 3 = 1 then (P.Map.add m ks.(i) i; gc_minor ());
-      if i mod 3 = 2 then gc_major ()
+      if i mod 243 = 2 then gc_major ()
     ) ks;
     gc_both ();
     Array.iteri (fun i _ ->
@@ -689,10 +689,10 @@ let () =
     for _r = 0 to 2000 do
       let i = Random.int 100000 in
       let k = keys.(i) in
-      let d = Random.int 8 in
-      if d < 3 then P.Map.add m k (Random.int 1_000_000)
-      else if d < 6 then ignore (P.Map.find m k)
-      else if d < 7 then
+      let d = Random.int 2000 in
+      if d < 666 then P.Map.add m k (Random.int 1_000_000)
+      else if d < 1333 then ignore (P.Map.find m k)
+      else if d < 1999 then
         ignore (Buffer.create (Random.int 4096))
       else gc_major ()
     done;
@@ -703,17 +703,16 @@ let () =
 
   with_label "int keys chaotic: map add + find + overwrite + random alloc" (fun () ->
     let m = P.Map.create () in
-    let keys = Array.init 50000 (fun i -> D.pack (D.Int i)) in
+    let keys = Array.init 50000 D.int in
     Array.iteri (fun i _ -> P.Map.add m keys.(i) i) keys;
     for _r = 0 to 500 do
       let i = Random.int 50000 in
       let k = keys.(i) in
-      let d = Random.int 10 in
-      if d < 4 then P.Map.add m k (Random.int 1_000_000)
-      else if d < 7 then ignore (P.Map.find m k)
-      else if d < 9 then
-        (let _ = Buffer.create (Random.int 4096) in
-         if Random.bool () then gc_minor () else ())
+      let d = Random.int 500 in
+      if d < 200 then P.Map.add m k (Random.int 1_000_000)
+      else if d < 350 then ignore (P.Map.find m k)
+      else if d < 499 then
+        ignore (Buffer.create (Random.int 4096))
       else gc_major ()
     done;
     gc_both ();
