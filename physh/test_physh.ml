@@ -635,6 +635,92 @@ let () =
     ) ks
   );
 
+  Printf.printf "\n--- Chaotic stress: mixed add/find/overwrite + random alloc ---\n%!";
+
+  with_label "set chaotic: add + mem + random alloc" (fun () ->
+    let s = P.Set.create () in
+    let r = R.Set.create () in
+    let keys = Array.init 20000 (fun i -> ref i) in
+    for _r = 0 to 500 do
+      let i = Random.int 20000 in
+      let k = keys.(i) in
+      let d = Random.int 10 in
+      if d < 7 then (P.Set.add s k; R.Set.add r k)
+      else if d < 9 then assert (P.Set.mem s k = R.Set.mem r k)
+      else ignore (Buffer.create (Random.int 4096))
+    done;
+    gc_both ();
+    Array.iter (fun k -> assert (P.Set.mem s k = R.Set.mem r k)) keys;
+    assert (P.Set.length s = R.Set.length r)
+  );
+
+  with_label "map chaotic: add + find + overwrite + random alloc" (fun () ->
+    let m = P.Map.create () in
+    let r = R.Map.create () in
+    let keys = Array.init 20000 (fun i -> ref i) in
+    Array.iteri (fun i _ -> P.Map.add m keys.(i) i;
+                            R.Map.add r keys.(i) i) keys;
+    for _r = 0 to 10000 do
+      let i = Random.int 20000 in
+      let k = keys.(i) in
+      let d = Random.int 2000 in
+      if d < 800 then
+        let v = Random.int 1_000_000 in
+        (P.Map.add m k v; R.Map.add r k v)
+      else if d < 1400 then assert (P.Map.find m k = R.Map.find r k)
+      else if d < 1999 then
+        ignore (Buffer.create (Random.int 4096))
+      else gc_major ()
+    done;
+    gc_both ();
+    Array.iter (fun k -> assert (R.Map.find r k = P.Map.find m k)) keys;
+    assert (P.Map.length m = R.Map.length r)
+  );
+
+  with_label "map chaotic large: 100k entries" (fun () ->
+    let m = P.Map.create () in
+    let keys = Array.init 100000 (fun i -> ref i) in
+    Array.iteri (fun i _ ->
+      P.Map.add m keys.(i) i;
+      if i mod 1000 = 0 then (
+        ignore (Buffer.create (Random.int 4096))
+      )
+    ) keys;
+    for _r = 0 to 2000 do
+      let i = Random.int 100000 in
+      let k = keys.(i) in
+      let d = Random.int 8 in
+      if d < 3 then P.Map.add m k (Random.int 1_000_000)
+      else if d < 6 then ignore (P.Map.find m k)
+      else if d < 7 then
+        ignore (Buffer.create (Random.int 4096))
+      else gc_major ()
+    done;
+    gc_both ();
+    Array.iter (fun k -> ignore (P.Map.find m k)) keys;
+    assert (P.Map.length m = 100000)
+  );
+
+  with_label "int keys chaotic: map add + find + overwrite + random alloc" (fun () ->
+    let m = P.Map.create () in
+    let keys = Array.init 50000 (fun i -> D.pack (D.Int i)) in
+    Array.iteri (fun i _ -> P.Map.add m keys.(i) i) keys;
+    for _r = 0 to 500 do
+      let i = Random.int 50000 in
+      let k = keys.(i) in
+      let d = Random.int 10 in
+      if d < 4 then P.Map.add m k (Random.int 1_000_000)
+      else if d < 7 then ignore (P.Map.find m k)
+      else if d < 9 then
+        (let _ = Buffer.create (Random.int 4096) in
+         if Random.bool () then gc_minor () else ())
+      else gc_major ()
+    done;
+    gc_both ();
+    Array.iter (fun k -> ignore (P.Map.find m k)) keys;
+    assert (P.Map.length m = 50000)
+  );
+
   Printf.printf "\n--- Summary ---\n%!";
   Printf.printf "  Passed: %d / %d  (failed: %d)\n%!"
     !pass_count !test_count !fail_count;
