@@ -33,8 +33,9 @@ let word = Sys.word_size - 1
 
 let near_pow2_key () =
   (* Keys at, just below, and just above powers of two stress the handling
-     of most significant bits. *)
-  let i = Random.int 40 in
+     of most significant bits. The bound keeps [k * word] in range on 32-bit
+     integers (js_of_ocaml), and is 40 on 64-bit. *)
+  let i = Random.int (min 40 (Sys.int_size - 6)) in
   let k = (1 lsl i) + (Random.int 3 - 1) in
   max 0 k * word + Random.int word
 
@@ -50,10 +51,10 @@ let gens : (string * (unit -> int)) list = [
   "pow2", near_pow2_key;
   "clustered", (fun () ->
       let cluster = Random.int 6 in
-      (cluster * 7_919 * 1_000_003) + Random.int 300);
+      (cluster * 7_919 * 1_000_003) land max_int + Random.int 300);
   "huge", (fun () ->
       if Random.bool () then max_int - Random.int 500
-      else Random.bits () lor (Random.bits () lsl 30));
+      else (Random.bits () lor (Random.bits () lsl 30)) land max_int);
   "mixed", (fun () ->
       match Random.int 4 with
       | 0 -> Random.int 128

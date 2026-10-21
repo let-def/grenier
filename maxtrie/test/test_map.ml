@@ -29,7 +29,7 @@ let agree name { c; r } =
       (show (R.of_seq (List.to_seq (C.bindings c)))) (show r)
 
 let near_pow2 () =
-  let i = Random.int 61 in
+  let i = Random.int (min 61 (Sys.int_size - 2)) in
   max 0 ((1 lsl i) + Random.int 3 - 1)
 
 let gens : (unit -> int) list = [
@@ -38,9 +38,9 @@ let gens : (unit -> int) list = [
   (fun () -> Random.int 300);
   (fun () -> Random.int 100_000);
   near_pow2;
-  (fun () -> (Random.int 5 * 1_000_003_000) + Random.int 100);
+  (fun () -> (Random.int 5 * 1_000_003_000) land max_int + Random.int 100);
   (fun () -> if Random.bool () then max_int - Random.int 100
-    else Random.bits () lor (Random.bits () lsl 30));
+    else (Random.bits () lor (Random.bits () lsl 30)) land max_int);
   (fun () -> match Random.int 3 with
      | 0 -> Random.int 64 | 1 -> near_pow2 () | _ -> max_int - Random.int 50);
 ]
