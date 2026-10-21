@@ -353,7 +353,7 @@ let rec compare a b =
    The copy to keep is chosen by [Bit_lib.share_choose], a C stub that
    prefers a value outside the minor heap (so that unification creates no
    major-to-minor pointers and the young copy can be collected early), and
-   otherwise the one at the lower address. Concurrent use from several
+   otherwise the one at the higher address. Concurrent use from several
    domains is safe: a racing reader sees either child, and both are equal. *)
 module Sharing = struct
   let rec equal a b =

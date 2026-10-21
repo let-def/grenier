@@ -20,5 +20,5 @@ let[@inline] lt_msb x y = x < y && x < x lxor y
 
 (* [share_choose a b] chooses which of two equal values to keep when unifying
    them: a value outside the minor heap if there is one, otherwise the one at
-   the lower address. *)
+   the higher address. *)
 external share_choose : 'a -> 'a -> 'a = "maxtrie_share_choose" [@@noalloc]

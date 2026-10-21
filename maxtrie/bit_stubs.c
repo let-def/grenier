@@ -70,10 +70,13 @@ value maxtrie_extract_msb_tagged(value x)
    A value outside the minor heap (major heap, static data, or an immediate)
    is preferred, so that unification does not create pointers from the major
    heap to the minor heap and the minor copy can die young. Between two values
-   of the same kind, the one at the lower address is kept, so that the choice
-   is consistent. Does not allocate, and has no branch: each value is mapped
-   to the key (young, address), compared lexicographically, by putting the
-   young flag in the top bit of the address shifted right by one. */
+   of the same kind, the one at the higher address is kept, so that the choice
+   is consistent. The minor heap is filled downwards, so this keeps the older
+   copy, which other values are more likely to reference already; in the major
+   heap, older blocks also tend to be at higher addresses. Does not allocate,
+   and has no branch: each value is mapped to the key (young, -address),
+   compared lexicographically, by putting the young flag in the top bit of
+   the complemented address shifted right by one; the lowest key is kept. */
 
 #include <caml/address_class.h>
 #include <caml/version.h>
@@ -102,7 +105,7 @@ static inline uintnat maxtrie_young_bit(value v)
 
 static inline uintnat maxtrie_share_key(value v)
 {
-  return (maxtrie_young_bit(v) << (WORD_BITS - 1)) | ((uintnat)v >> 1);
+  return (maxtrie_young_bit(v) << (WORD_BITS - 1)) | (~(uintnat)v >> 1);
 }
 
 value maxtrie_share_choose(value a, value b)
