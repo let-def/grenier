@@ -69,11 +69,11 @@ struct
     | Node (_, l, k', r) ->
       let c = O.compare k k' in
       if c < 0 then
-        let l', v', r' = split k l in
-        l', v', Bt1.join r' r
+        let l', found, r' = split k l in
+        l', found, Bt1.node r' k' r
       else if c > 0 then
-        let l', v', r' = split k r in
-        Bt1.join l l', v', r'
+        let l', found, r' = split k r in
+        Bt1.node l k' l', found, r'
       else
         (l, true, r)
 
@@ -119,7 +119,7 @@ struct
       | n -> n
 
   let equal t1 t2 =
-    t1 == t2 && Int.equal (cardinal t1) (cardinal t2) &&
+    t1 == t2 || Int.equal (cardinal t1) (cardinal t2) &&
     let rec equal_aux = function
       | (End, End) -> true
       | (End, _  ) | (_  , End) -> assert false
