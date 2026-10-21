@@ -70,7 +70,10 @@ let inc_right l y r k =
     same way. *)
 let rec node_balance l x r =
   let sl = size l and sr = size r in
-  if disbalanced sl sr then
+  (* Fast path: [disbalanced a b] requires [a < b / 2]. *)
+  if sr <= 2 * sl + 1 && sl <= 2 * sr + 1 then
+    node_ sl l x sr r
+  else if disbalanced sl sr then
     inc_left l x r node_balance
   else if disbalanced sr sl then
     inc_right l x r node_balance
@@ -82,7 +85,10 @@ let rec node_balance l x r =
     Cost is O(log (max sl sr / min sl sr)). *)
 let rec link l x r =
   let sl = size l and sr = size r in
-  if disbalanced sl sr then
+  (* Fast path: [disbalanced a b] requires [a < b / 2]. *)
+  if sr <= 2 * sl + 1 && sl <= 2 * sr + 1 then
+    node_ sl l x sr r
+  else if disbalanced sl sr then
     match r with
     | Node (_, rl, y, rr) -> node_balance (link l x rl) y rr
     | Leaf -> assert false
