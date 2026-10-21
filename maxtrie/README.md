@@ -11,7 +11,7 @@ and the maximum is at the root. The representation is canonical, and the depth
 is bounded by the word size.
 
 - `Maxtrie.PatSet`: sets of `int`. Each key carries a 63-bit bitmap, so dense
-  sets use about one node per 63 elements. `PatSet.Sharing.{equal,compare}`
+  sets use about one node per 63 elements (31 under js_of_ocaml). `PatSet.Sharing.{equal,compare}`
   also make structurally equal subtrees physically shared.
 - `Maxtrie.PatMap`: maps from `int`, one binding per node, with a
   `Stdlib.Map.S`-like interface. Immutable, with a covariant `+'a t`.
@@ -30,6 +30,8 @@ is bounded by the word size.
     dune runtest maxtrie                  # the differential testers
     SEED=42 ROUNDS=2000 dune exec maxtrie/test/test_set.exe
     SEED=42 ROUNDS=2000 dune exec maxtrie/test/test_map.exe
+    # under js_of_ocaml (32-bit integers); JS defaults to node
+    JS=gjs dune build --build-dir _build_js @maxtrie/test/js/runtest-js
 
 The testers run random operation sequences against `Stdlib.Set`/`Stdlib.Map`
 over several key distributions (dense, sparse, clustered, near powers of two,
