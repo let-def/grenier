@@ -124,12 +124,33 @@ then add it to the major table a second time.
   for pointer keys. Replaced with Fibonacci hashing (top bits of
   `n * 0x9E3779B97F4A7C15`): about 1.0–1.4 probes, and lookups/inserts on
   old keys are 20–25% faster.
-- **Minor table is capped at `Max_young_wosize` words.** That is 128 slots / 96 entries
-  for Map and 192 for Set. Inserting the 97th young key forces a minor GC: 1M
-  inserts of fresh keys caused **10320 minor collections**. This was not changed. It
-  could be fixed by letting the minor table grow in the major heap. That costs
-  ref-table entries, but the store barrier pays that cost anyway once the
-  table has been promoted.
+- **Minor table was capped at `Max_young_wosize` words.** That was 96 entries for Map and
+  192 for Set. Inserting one more young key forced a minor GC, so 1M inserts of fresh keys
+  caused 10313 minor collections. The minor table can now grow into the major
+  heap (young keys then go through the ref table), and it is dropped after each
+  flush instead of being cleared.
 - **Multi-domain:** each table must stay on one domain (no locking). Tables
   on different domains work: `Is_young` covers all minor heaps, and both
   minor GC and compaction are STW.
+
+## 4. Sentinels must not be OCaml heap values
+
+The empty-slot sentinel used to be `let null = ref ()`, passed to every stub.
+It is an ordinary heap block:
+
+- at startup it is **young**. Filling a major-heap table with it using raw writes
+  creates major→minor pointers with no ref-table entry. After the next minor
+  GC those slots point to the old address. Symptoms: "young" keys in a flushed
+  minor table, and tables that never find an empty slot (infinite probing).
+- `Gc.compact` (possibly from another domain, during an allocation in a stub)
+  **moves** it. Any C local copy is then stale; tables filled after the move
+  are full of a dead address.
+
+The sentinels are now static C blocks with `Caml_out_of_heap_header`
+(`NOT_MARKABLE` colour; `Caml_black` before it existed). The GC ignores them
+(marking, sweeping, compaction). They are never young and never move, so
+writing them never needs a barrier and no roots need to be registered for them.
+
+The fast paths are `[@@noalloc]` and report "sync needed" with a second
+sentinel (or `false` for `add`). The OCaml side then calls an allocating slow
+path.
