@@ -40,10 +40,25 @@ let worker ~rounds ~seed () =
         if i mod 7 = 0 then Obj.magic i else Obj.repr (ref i)) in
     let vs = Array.make n (-1) in
     Array.iteri (fun i k ->
-        P.Map.add m k i; vs.(i) <- i; P.Set.add s k;
+        (* fresh key: the prior state is "absent" *)
+        let fresh =
+          if i land 1 = 0
+          then P.Map.add_if_new m k i
+          else P.Map.add_overwrite m k i
+        in
+        check "map: fresh key present" (fresh = None);
+        vs.(i) <- i;
+        check "set: fresh key present" (not (P.Set.add_if_new s k));
+        (* existing key: the prior state is its current binding *)
         let j = Random.State.int rng (i + 1) in
-        P.Map.add m ks.(j) (j + r); vs.(j) <- j + r;
-        P.Set.add s ks.(j);
+        if Random.State.bool rng then begin
+          check "map: wrong prior binding"
+            (P.Map.add_overwrite m ks.(j) (j + r) = Some vs.(j));
+          vs.(j) <- j + r
+        end else
+          check "map: wrong prior binding"
+            (P.Map.add_if_new m ks.(j) (-1) = Some vs.(j));
+        check "set: existing key absent" (P.Set.add_if_new s ks.(j));
         if Random.State.int rng 100 = 0 then
           ignore (P.Map.find m ks.(Random.State.int rng (i + 1))))
       ks;
