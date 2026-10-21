@@ -1,0 +1,20 @@
+; The differential testers under js_of_ocaml (32-bit integers). Opt-in, so
+; that the default build does not need js_of_ocaml:
+;   dune build @maxtrie/test/js/runtest-js          (runs with node)
+;   JS=gjs dune build @maxtrie/test/js/runtest-js   (or any other JS shell)
+(copy_files# ../test_set.ml)
+(copy_files# ../test_map.ml)
+
+(executables
+ (names test_set test_map)
+ (modes byte)
+ (libraries maxtrie))
+
+; js_of_ocaml is run from the shell, so that no rule of the default build
+; depends on it.
+(rule
+ (alias runtest-js)
+ (deps test_set.bc test_map.bc ../../bit_stubs.js)
+ (action
+  (system
+   "d=$(mktemp -d) && for t in test_set test_map; do js_of_ocaml ../../bit_stubs.js $t.bc -o $d/$t.js && ${JS:-node} $d/$t.js || { rm -rf $d; exit 1; }; done; rm -rf $d")))
