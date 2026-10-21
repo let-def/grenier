@@ -3,7 +3,7 @@
  (modules physh)
  (public_name grenier.physh)
  (wrapped false)
- (foreign_stubs (language c) (names ml_physh_map ml_physh_set))
+ (foreign_stubs (language c) (names ml_physh))
  (synopsis "Physical hashtable and hashset"))
 
 (executable
