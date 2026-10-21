@@ -32,8 +32,9 @@ module Make(M : MEASURE) : sig
   (** Smart Node constructor, ensuring that the resulting tree is balanced and
       has the appropriate size.
 
-      Cost of [node l x r] is expected to be O(log |[size l] - [size r]|)
-      amortized, i.e proportional to the logarithm of the disbalance.
+      Cost of [node l x r] is expected to be
+      O(log (max [size l] [size r] / min [size l] [size r])) amortized, i.e
+      proportional to the logarithm of the disbalance.
       In particular, if [l] and [r] are similarly-sized, it operates in constant
       time on average.
       NOT PROVEN
@@ -50,7 +51,7 @@ module Make(M : MEASURE) : sig
   val size : 'a t -> int
 
   (** Concatenate two trees.
-      Cost of [join l r] is O(log (min [size l] [size r])).
+      Cost of [join l r] is O(log (max [size l] [size r])).
       NOT PROVEN
   *)
   val join : 'a t -> 'a t -> 'a t

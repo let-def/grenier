@@ -35,7 +35,7 @@ let disbalanced smin smax = smaller_ell smin (smax lsr 1)
 *)
 
 (** Construct Node *)
-let node_ l x0 x1 r = Node (size l + 1 + size r, l, x0, x1, r)
+let node_ sl l x0 x1 sr r = Node (sl + 1 + sr, l, x0, x1, r)
 
 (** Rotations *)
 let rot_left l x0 x1 r k = match r with
@@ -76,23 +76,51 @@ let rec node_balance l x0 x1 r =
   else if disbalanced sr sl then
     inc_right l x0 x1 r node_balance
   else
-    node_ l x0 x1 r
+    node_ sl l x0 x1 sr r
+
+(** [link l x r] joins balanced trees [l] and [r] of any sizes around [x],
+    descending the spine of the larger one until the sizes are compatible.
+    Cost is O(log (max sl sr / min sl sr)). *)
+let rec link l x0 x1 r =
+  let sl = size l and sr = size r in
+  if disbalanced sl sr then
+    match r with
+    | Node (_, rl, y0, y1, rr) -> node_balance (link l x0 x1 rl) y0 y1 rr
+    | Leaf -> assert false
+  else if disbalanced sr sl then
+    match l with
+    | Node (_, ll, y0, y1, lr) -> node_balance ll y0 y1 (link lr x0 x1 r)
+    | Leaf -> assert false
+  else
+    node_ sl l x0 x1 sr r
+
+(** Remove the last element, returned with the remaining tree. *)
+let rec pop_max = function
+  | Node (_, l, x0, x1, Leaf) -> l, (x0, x1)
+  | Node (_, l, x0, x1, r) -> let r, m = pop_max r in node_balance l x0 x1 r, m
+  | Leaf -> assert false
+
+(** Remove the first element, returned with the remaining tree. *)
+let rec pop_min = function
+  | Node (_, Leaf, x0, x1, r) -> (x0, x1), r
+  | Node (_, l, x0, x1, r) -> let m, l = pop_min l in m, node_balance l x0 x1 r
+  | Leaf -> assert false
 
 (** Public interface *)
 
 let leaf = Leaf
 
-let node l x0 x1 r = match l, r with
-  | Leaf, Leaf -> node_ leaf x0 x1 leaf
-  | l, r -> node_balance l x0 x1 r
+let node l x0 x1 r = link l x0 x1 r
 
-let rec join l r = match l, r with
+(* The root of the result is the last element of [l] or the first of [r],
+   taken from the smaller tree. *)
+let join l r = match l, r with
   | Leaf, t | t, Leaf -> t
-  | Node (sl, ll, x0, x1, lr), Node (sr, rl, y0, y1, rr) ->
+  | Node (sl, _, _, _, _), Node (sr, _, _, _, _) ->
     if sl <= sr then
-      node (join l rl) y0 y1 rr
+      let l, (x0, x1) = pop_max l in link l x0 x1 r
     else
-      node ll x0 x1 (join lr r)
+      let (x0, x1), r = pop_min r in link l x0 x1 r
 
 let rec rank n = function
   | Leaf -> raise Not_found
