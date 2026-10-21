@@ -154,3 +154,17 @@ writing them never needs a barrier and no roots need to be registered for them.
 The fast paths are `[@@noalloc]` and report "sync needed" with a second
 sentinel (or `false` for `add`). The OCaml side then calls an allocating slow
 path.
+
+## 5. OCaml 4.14 debug runtime: heap check failure with best-fit + `O=0`
+
+With the 4.14.4 debug runtime and `OCAMLRUNPARAM=O=0,s=4k` (compaction at
+every major cycle, small minor heap), `caml_heap_check` at the start of a
+cycle can fail with `Assertion failed: Color_hd (Hd_val (v)) != Caml_blue`.
+This also happens in a pure OCaml program (a `Hashtbl` workload with
+frequent `Gc.full_major`, no physh, no C stubs). It only happens with the
+default best-fit allocator (`a=2`): it passes with `a=0` and `a=1`. It is a
+runtime issue, not a physh one: when testing on 4.14 with `O=0` and the debug
+runtime, use `a=1`.
+
+`Array.fill` (and other array primitives) on `[||]` also asserts on 4.14
+debug runtimes, because the empty array is a static atom outside the heap.

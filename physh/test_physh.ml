@@ -479,6 +479,192 @@ let () =
     assert (P.Set.length s = 31)
   );
 
+  (* ---- REMOVE / ITERATION / CLEAR ---- *)
+
+  Printf.printf "\n--- remove, iter, fold, clear, reset ---\n%!";
+
+  with_label "set remove basic" (fun () ->
+    let s = P.Set.create () in
+    let x = ref 1 and y = ref 1 in
+    P.Set.remove s x;
+    P.Set.add s x; P.Set.add s y; P.Set.add s (D.int 3 |> Obj.magic);
+    P.Set.remove s x;
+    assert (not (P.Set.mem s x));
+    assert (P.Set.mem s y);
+    P.Set.remove s x;
+    assert (P.Set.length s = 2)
+  );
+
+  with_label "map remove, find_opt, mem, is_empty" (fun () ->
+    let m = P.Map.create () in
+    let k = ref 0 and k' = ref 0 in
+    assert (P.Map.is_empty m);
+    assert (P.Map.find_opt m k = None);
+    P.Map.add m k "a"; P.Map.add m k' "b";
+    assert (P.Map.find_opt m k = Some "a");
+    assert (P.Map.mem m k && not (P.Map.is_empty m));
+    P.Map.remove m k;
+    assert (P.Map.find_opt m k = None && not (P.Map.mem m k));
+    assert (P.Map.find m k' = "b");
+    P.Map.remove m k';
+    assert (P.Map.is_empty m);
+    P.Map.add m k "c";
+    assert (P.Map.find m k = "c")
+  );
+
+  (* Dense immediate keys make long clusters: exercise backward shifts *)
+  with_label "remove in clusters (int keys)" (fun () ->
+    let s = P.Set.create () and m = P.Map.create () in
+    let n = 10_000 in
+    for i = 0 to n - 1 do P.Set.add s (D.int i); P.Map.add m (D.int i) i done;
+    for i = 0 to n - 1 do
+      if i mod 3 <> 0 then (P.Set.remove s (D.int i); P.Map.remove m (D.int i))
+    done;
+    for i = 0 to n - 1 do
+      assert (P.Set.mem s (D.int i) = (i mod 3 = 0));
+      assert (P.Map.find_opt m (D.int i) = if i mod 3 = 0 then Some i else None)
+    done;
+    assert (P.Set.length s = (n + 2) / 3 && P.Map.length m = (n + 2) / 3)
+  );
+
+  with_label "remove the witness, then minor gc" (fun () ->
+    let s = P.Set.create () in
+    let x = ref 0 in
+    P.Set.add s x;
+    P.Set.remove s x;
+    let y = ref 1 and z = ref 2 in
+    P.Set.add s y; P.Set.add s z;
+    P.Set.remove s y;
+    gc_minor ();
+    assert (P.Set.mem s z && not (P.Set.mem s y) && not (P.Set.mem s x));
+    assert (P.Set.length s = 1)
+  );
+
+  with_label "set add/remove vs model under gc" (fun () ->
+    let s = P.Set.create () in
+    let ks = random_keys 20_000 in
+    let present = Array.make (Array.length ks) false in
+    for r = 1 to 100_000 do
+      let i = Random.int (Array.length ks) in
+      (match Random.int 3 with
+       | 0 -> P.Set.remove s ks.(i); present.(i) <- false
+       | 1 -> P.Set.add s ks.(i); present.(i) <- true
+       | _ -> assert (P.Set.mem s ks.(i) = present.(i)));
+      if r mod 1000 = 0 then gc_noise ();
+      if r mod 5000 = 0 then gc_major ()
+    done;
+    Array.iteri (fun i k -> assert (P.Set.mem s k = present.(i))) ks;
+    let n = Array.fold_left (fun n b -> if b then n + 1 else n) 0 present in
+    assert (P.Set.length s = n)
+  );
+
+  with_label "map add/remove vs model under gc" (fun () ->
+    let m = P.Map.create () in
+    let ks = random_keys 20_000 in
+    let model = Array.make (Array.length ks) None in
+    for r = 1 to 100_000 do
+      let i = Random.int (Array.length ks) in
+      (match Random.int 3 with
+       | 0 -> P.Map.remove m ks.(i); model.(i) <- None
+       | 1 -> let v = Random.int 1000 in P.Map.add m ks.(i) v; model.(i) <- Some v
+       | _ -> assert (P.Map.find_opt m ks.(i) = model.(i)));
+      if r mod 1000 = 0 then gc_noise ();
+      if r mod 5000 = 0 then gc_major ()
+    done;
+    Array.iteri (fun i k -> assert (P.Map.find_opt m k = model.(i))) ks;
+    let n = Array.fold_left (fun n b -> if b <> None then n + 1 else n) 0 model in
+    assert (P.Map.length m = n)
+  );
+
+  (* DFS cycle detection: the nodes of the current path *)
+  with_label "set remove: cycle detection" (fun () ->
+    let rec has_cycle path visited (n : int list ref array) i =
+      P.Set.mem path n.(i) ||
+      (not (P.Set.add_if_new visited n.(i)) &&
+       begin
+         P.Set.add path n.(i);
+         let r = List.exists (has_cycle path visited n) !(n.(i)) in
+         P.Set.remove path n.(i);
+         r
+       end)
+    in
+    let graph edges = Array.map ref edges in
+    let check g expected =
+      let path = P.Set.create () and visited = P.Set.create () in
+      assert (has_cycle path visited g 0 = expected);
+      assert (P.Set.is_empty path)
+    in
+    check (graph [| [1; 2]; [3]; [3]; [] |]) false;
+    check (graph [| [1; 2]; [3]; [3]; [2] |]) true;
+    check (graph [| [0] |]) true
+  );
+
+  (* Each element once, with GCs and lookups (that sync the table) in the
+     callback *)
+  with_label "set iter / fold under gc" (fun () ->
+    let s = P.Set.create () in
+    let ks = random_keys 5000 in
+    Array.iteri (fun i k -> if i mod 4 <> 0 then P.Set.add s k) ks;
+    (* young keys in the minor table, old ones in the major table *)
+    let young = Array.init 100 (fun i -> D.obj (ref i)) in
+    Array.iter (P.Set.add s) young;
+    let seen = R.Set.create () in
+    let count = ref 0 in
+    P.Set.iter (fun k ->
+        assert (not (R.Set.mem seen k));
+        R.Set.add seen k;
+        incr count;
+        if !count mod 50 = 0 then gc_minor ();
+        if !count mod 1000 = 0 then gc_major ();
+        assert (P.Set.mem s k)) s;
+    assert (!count = P.Set.length s);
+    Array.iteri (fun i k -> assert (R.Set.mem seen k = (i mod 4 <> 0))) ks;
+    Array.iter (fun k -> assert (R.Set.mem seen k)) young;
+    assert (P.Set.fold (fun _ n -> n + 1) s 0 = P.Set.length s);
+    assert (P.Set.fold (fun _ n -> n + 1) (P.Set.create ()) 0 = 0)
+  );
+
+  with_label "map iter / fold under gc" (fun () ->
+    let m = P.Map.create () in
+    let ks = random_keys 5000 in
+    Array.iteri (fun i k -> P.Map.add m k i) ks;
+    let young = Array.init 100 (fun i -> D.obj (ref i)) in
+    Array.iteri (fun i k -> P.Map.add m k (- i - 1)) young;
+    let seen = R.Map.create () and sum = ref 0 in
+    let mem k = match R.Map.find seen k with _ -> true | exception Not_found -> false in
+    P.Map.iter (fun k v ->
+        assert (not (mem k));
+        R.Map.add seen k v;
+        sum := !sum + v;
+        if R.Map.length seen mod 50 = 0 then gc_minor ();
+        if R.Map.length seen mod 1000 = 0 then gc_major ();
+        assert (P.Map.find m k = v)) m;
+    assert (R.Map.length seen = P.Map.length m);
+    Array.iteri (fun i k -> assert (R.Map.find seen k = i)) ks;
+    Array.iteri (fun i k -> assert (R.Map.find seen k = - i - 1)) young;
+    assert (P.Map.fold (fun _ v acc -> acc + v) m 0 = !sum)
+  );
+
+  with_label "clear / reset and reuse under gc" (fun () ->
+    let s = P.Set.create () and m = P.Map.create () in
+    for round = 1 to 30 do
+      let ks = Array.init (100 * round) (fun i -> ref i) in
+      Array.iteri (fun i k ->
+          P.Set.add s k; P.Map.add m k i;
+          if i mod 500 = 0 then gc_minor ()) ks;
+      if round mod 3 = 0 then gc_major ();
+      Array.iteri (fun i k ->
+          assert (P.Set.mem s k && P.Map.find m k = i)) ks;
+      assert (P.Set.length s = Array.length ks);
+      if round mod 2 = 0 then (P.Set.clear s; P.Map.clear m)
+      else (P.Set.reset s; P.Map.reset m);
+      assert (P.Set.is_empty s && P.Map.is_empty m);
+      Array.iter (fun k ->
+          assert (not (P.Set.mem s k) && not (P.Map.mem m k))) ks;
+      assert (P.Set.fold (fun _ n -> n + 1) s 0 = 0)
+    done
+  );
+
   (* ---- COMPACTION ---- *)
 
   Printf.printf "\n--- Compaction ---\n%!";
@@ -527,6 +713,20 @@ let () =
     Array.iter (fun k -> P.Map.add m k (- !k)) keep;
     Array.iter (fun k -> assert (P.Map.find m k = - !k)) keep;
     assert (P.Map.length m = Array.length keep)
+  );
+
+  with_label "remove and iter after compaction" (fun () ->
+    let keep = sparse_survivors () in
+    let m = P.Map.create () in
+    Array.iter (fun k -> P.Map.add m k !k) keep;
+    gc_major ();
+    Gc.compact ();
+    let sum = P.Map.fold (fun k v acc -> assert (!k = v); acc + 1) m 0 in
+    assert (sum = Array.length keep);
+    Array.iteri (fun i k -> if i mod 2 = 0 then P.Map.remove m k) keep;
+    Array.iteri (fun i k ->
+        assert (P.Map.find_opt m k = if i mod 2 = 0 then None else Some !k)) keep;
+    assert (P.Map.length m = Array.length keep / 2)
   );
 
   Printf.printf "\n--- Summary ---\n%!";

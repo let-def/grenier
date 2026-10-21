@@ -62,15 +62,25 @@ let worker ~rounds ~seed () =
         if Random.State.int rng 100 = 0 then
           ignore (P.Map.find m ks.(Random.State.int rng (i + 1))))
       ks;
+    (* remove a fifth of the keys *)
+    let removed i = i mod 5 = 1 in
+    Array.iteri (fun i k ->
+        if removed i then (P.Map.remove m k; P.Set.remove s k)) ks;
+    let n = n - (n + 3) / 5 in
     let check_tables () =
       Array.iteri (fun i k ->
-          (match P.Map.find m k with
-           | v -> check "map: wrong value" (v = vs.(i))
-           | exception Not_found -> check "map: key lost" false);
-          check "set: key lost" (P.Set.mem s k))
+          if removed i then begin
+            check "map: removed key" (not (P.Map.mem m k));
+            check "set: removed key" (not (P.Set.mem s k))
+          end else begin
+            check "map: wrong value" (P.Map.find_opt m k = Some vs.(i));
+            check "set: key lost" (P.Set.mem s k)
+          end)
         ks;
       check "map: length" (P.Map.length m = n);
       check "set: length" (P.Set.length s = n);
+      check "map: fold" (P.Map.fold (fun _ _ c -> c + 1) m 0 = n);
+      check "set: fold" (P.Set.fold (fun _ c -> c + 1) s 0 = n);
       check "set: spurious mem" (not (P.Set.mem s (Obj.repr (ref 0))))
     in
     check_tables ();
