@@ -1,0 +1,8 @@
+(executable
+ (name test)
+ (libraries grenier.fastdom))
+
+(rule
+ (alias runtest)
+ (deps test.exe)
+ (action (run %{deps})))

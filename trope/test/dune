@@ -1,0 +1,9 @@
+(executable
+ (name test)
+ (flags (:standard -w -27))
+ (libraries grenier.trope))
+
+(rule
+ (alias runtest)
+ (deps test.exe)
+ (action (run %{deps} 1000000)))

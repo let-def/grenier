@@ -19,3 +19,8 @@
  (alias runtest)
  (deps test_order.exe)
  (action (run %{deps})))
+
+(rule
+ (alias runtest)
+ (deps test_interval.exe)
+ (action (run %{deps})))
