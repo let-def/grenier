@@ -3,9 +3,13 @@
 (** Type of HyperLogLog counters *)
 type t
 
-(** Create a new counter with [error] error rate.
+(** Create a new counter with [error] error rate (the relative standard error
+    of the estimation).
     [error] should verify [0.0 < error && error < 1.0].
     [0.05] is a reasonable default.
+
+    The number of registers is a power of two between [2^4] and [2^18], so the
+    error is at most [26%] and at least [0.2%], whatever [error] asks.
 
     Use [estimate_memory] to measure memory consumption and runtime of this
     function.

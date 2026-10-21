@@ -17,15 +17,31 @@ type t = bytes
 
 (** Building a new hll *)
 
-let validate t = (1 lsl Char.code (Bytes.get t 0) + 1 = Bytes.length t)
+(* Precisions supported by the bias correction tables of HyperLogLog++. *)
+let min_precision = 4
+let max_precision = 18
+
+let validate t =
+  let p = Char.code (Bytes.get t 0) in
+  min_precision <= p && p <= max_precision && 1 lsl p + 1 = Bytes.length t
+
+(* Float.log2 requires OCaml 4.13. Going through frexp keeps the result
+   exact on powers of two. *)
+let log2 x =
+  let m, e = frexp x in
+  float (e - 1) +. log (2. *. m) /. log 2.
+
+(* The standard error with 2^p registers is 1.04 / sqrt (2^p). *)
+let precision ~error =
+  let p = int_of_float (ceil (log2 (sqr (1.04 /. error)))) in
+  max min_precision (min max_precision p)
 
 let estimate_memory ~error =
-  let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
-  (1 lsl p)
+  1 lsl precision ~error
 
 let make ~error =
   assert (0. < error && error < 1.);
-  let p = int_of_float (ceil (log (sqr (1.04 /. error)))) in
+  let p = precision ~error in
   let t = Bytes.make (1 lsl p + 1) '\000' in
   Bytes.set t 0 (Char.chr p);
   assert (validate t);
@@ -75,7 +91,7 @@ let count_nulls t =
   !nulls
 
 let get_alpha = function
-  | p when not (4 <= p && p <= 16) -> assert false
+  | p when not (min_precision <= p && p <= max_precision) -> assert false
   | 4 -> 0.673
   | 5 -> 0.697
   | 6 -> 0.709
