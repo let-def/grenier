@@ -1,0 +1,27 @@
+(executables
+ (names test_set test_map test_map_sharing)
+ (modes native byte_complete)
+ (libraries maxtrie))
+
+; The same map tests, run on PatMapSharing (whose Sharing comparisons are
+; then actually exercised).
+(rule
+ (targets test_map_sharing.ml)
+ (deps test_map.ml)
+ (action
+  (with-stdout-to %{targets}
+   (progn
+    (echo "# 1 \"maxtrie/test/test_map.ml\"\n")
+    (run sed
+     -e "s/^module C = Maxtrie.PatMap$/module C = Maxtrie.PatMapSharing/"
+     -e "s/^module CS = struct let equal = C.equal let compare = C.compare end$/module CS = C.Sharing/"
+     -e "s/^let name = \"PatMap\"$/let name = \"PatMapSharing\"/"
+     test_map.ml)))))
+
+(rule
+ (alias runtest)
+ (action
+  (progn
+   (run %{exe:test_set.exe})
+   (run %{exe:test_map.exe})
+   (run %{exe:test_map_sharing.exe}))))

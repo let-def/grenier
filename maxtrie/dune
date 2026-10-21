@@ -1,0 +1,38 @@
+(library
+ (name maxtrie)
+ (public_name grenier.maxtrie)
+ (foreign_stubs (language c) (names bit_stubs) (flags (:standard -O2))))
+
+(env
+ (dev (flags (:standard -w +A-4-9-40-41-42-44-45-70)))
+ (release (flags (:standard -noassert))))
+
+; PatMapSharing is generated from PatMap: the children of nodes become
+; mutable (so the type parameter is invariant) and the Sharing module is
+; appended. If a substitution stops matching, compilation fails: Sharing
+; mutates the children, and the interface would declare a covariant type.
+(rule
+ (targets PatMapSharing.ml)
+ (deps PatMap.ml patMap_sharing.ml.in)
+ (action
+  (with-stdout-to %{targets}
+   (progn
+    (echo "# 1 \"maxtrie/PatMap.ml\"\n")
+    (run sed
+     -e "s/^type +'a t =$/type 'a t =/"
+     -e "s/^  | Node of { k: int; v: 'a; l: 'a t; r: 'a t }$/  | Node of { k: int; v: 'a; mutable l: 'a t; mutable r: 'a t }/"
+     PatMap.ml)
+    (cat patMap_sharing.ml.in)))))
+
+(rule
+ (targets PatMapSharing.mli)
+ (deps PatMap.mli patMap_sharing.mli.in)
+ (action
+  (with-stdout-to %{targets}
+   (progn
+    (echo "# 1 \"maxtrie/PatMap.mli\"\n")
+    (run sed
+     -e "s/^type +'a t$/type 'a t/"
+     -e "s/^   See {!PatMapSharing} for a variant whose comparisons unify equal subtrees.$/   This is {!PatMap} with mutable children (for {!Sharing}): ['a t] is invariant./"
+     PatMap.mli)
+    (cat patMap_sharing.mli.in)))))

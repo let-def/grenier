@@ -1,0 +1,2 @@
+(executable (name sharecheck) (libraries maxtrie))
+(rule (alias runtest) (action (run %{exe:sharecheck.exe})))

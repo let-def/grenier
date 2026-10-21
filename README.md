@@ -141,3 +141,15 @@ by Keith D. Cooper, Timothy J. Harvey, and Ken Kennedy.
 
 A congruence closure algorithm, inspired by [Fast congruence closure and extensions](https://www.sciencedirect.com/science/article/pii/S0890540106001581) by Robert Nieuwenhuis and Albert Oliveras.
 Support backtracking and interpretation of equivalence classes to OCaml value.
+
+## maxtrie : Integer sets and maps as Patricia tries with hoisted maxima
+
+Immutable sets (`Maxtrie.PatSet`) and maps (`Maxtrie.PatMap`) over
+non-negative integers. Each node stores the maximum key of its subtree, so
+there are no branching-only nodes: `n` keys use `n` nodes (sets pack 63
+elements per node), the maximum is at the root, and the representation is
+canonical. Set operations allocate essentially only the nodes of the result
+that are not shared with their inputs, `PatMap.changes` enumerates the
+bindings that differ between two maps while skipping shared subtrees, and
+`Sharing.{equal,compare}` make equal subtrees physically shared.
+See [maxtrie/README.md](maxtrie/README.md).
