@@ -76,7 +76,8 @@ static value sentinels[4] = {
 #define STALE ((value)&sentinels[3])
 
 // Layout of a table, must match the record defined in physh.ml.
-// The tables have [width] words per entry: the key, then the value for maps.
+// Young keys are stored in the minor table, other keys in the major table.
+// The fill count of each table is stored in the field just before it.
 
 #define T_WITNESS     0
 #define T_MINOR_FILL  1
@@ -84,6 +85,16 @@ static value sentinels[4] = {
 #define T_COMPACTIONS 3
 #define T_MAJOR_FILL  4
 #define T_MAJOR       5
+
+#define T_FILL(part) ((part) - 1)
+
+// Tables have [width] words per entry: the key, then the value for maps.
+
+#define SET_WIDTH 1
+#define MAP_WIDTH 2
+
+// Prior state of a key, must match [state] in physh.ml
+enum { ABSENT = 0, PRESENT = 1, NEED_SYNC = 2 };
 
 static int value_is_young(value obj)
 {
@@ -120,7 +131,8 @@ static size_t table_hash (value v, size_t slots)
   return (bits == 0 ? 0 : (size_t)(h >> (64 - bits)));
 }
 
-// Table must not be full
+// Index of the slot holding [obj], or of the empty slot where it belongs.
+// Table must not be full.
 static inline size_t table_find (value table, value obj, const int width)
 {
   size_t slots = table_slots (table, width);
@@ -143,59 +155,45 @@ static int has_capacity(size_t slots, size_t n)
   return (slots * 3 >= n * 4);
 }
 
-// Accessors
-
-static size_t t_minor_fill(value t)
-{
-  return Long_val(Field(t, T_MINOR_FILL));
-}
-
-static size_t t_major_fill(value t)
-{
-  return Long_val(Field(t, T_MAJOR_FILL));
-}
-
-static int t_minor_is_valid(value t)
-{
-  return (t_minor_fill(t) == 0 || value_is_young(Field(t, T_WITNESS)));
-}
-
-static int t_major_is_valid(value t)
-{
-  return (t_major_fill(t) == 0 ||
-          Long_val(Field(t, T_COMPACTIONS)) == (intnat)get_compactions());
-}
-
-static void t_major_set_valid(value t)
-{
-  Field(t, T_COMPACTIONS) = Val_long(get_compactions());
-}
-
-static int tables_valid (value t)
-{
-  return (t_minor_is_valid(t) && t_major_is_valid(t));
-}
-
-// Stores in fresh tables
+// Fill an empty slot.
 //
 // Empty slots hold EMPTY, which is not a heap value: overwriting it requires
-// no darkening (deletion barrier). Old values need no ref table entry
-// either, so they can be written directly. Possibly young values go through
-// caml_initialize.
-
-static void store_old_over_empty (value table, size_t i, value v)
-{
-  assert (Field(table, i) == EMPTY);
-  assert (!value_is_young(v));
-  Field(table, i) = v;
-}
-
-static void initialize_over_empty (value table, size_t i, value v)
+// no darkening (deletion barrier). caml_initialize records young values in
+// the ref table when the table is not young: this is what caml_modify would
+// do, without the barrier and the fence.
+static void initialize_word (value table, size_t i, value v)
 {
   assert (Field(table, i) == EMPTY);
   // caml_initialize expects a field without pointer
   Field(table, i) = Val_unit;
   caml_initialize(&Field(table, i), v);
+}
+
+static inline void fill_slot (value table, size_t index, value key, value val,
+                              const int width)
+{
+  initialize_word(table, index * width, key);
+  if (width == MAP_WIDTH)
+    initialize_word(table, index * width + 1, val);
+}
+
+// Insert all entries of [src] in [dst], which must have room for them.
+// Returns the number of entries. Does not allocate.
+static inline size_t move_entries (value src, value dst, const int width)
+{
+  size_t sz = table_slots(src, width), n = 0, i;
+
+  for (i = 0; i < sz; ++i)
+  {
+    value k = Field(src, i * width);
+    if (k == EMPTY) continue;
+
+    value v = (width == MAP_WIDTH ? Field(src, i * width + 1) : Val_unit);
+    fill_slot(dst, table_find(dst, k, width), k, v, width);
+    ++n;
+  }
+
+  return n;
 }
 
 // Allocate a table of [wosize] words filled with EMPTY.
@@ -216,42 +214,68 @@ static value alloc_table (mlsize_t wosize)
   return v;
 }
 
+// Accessors
+
+// The table where [key] belongs
+static int key_part(value key)
+{
+  return (value_is_young(key) ? T_MINOR : T_MAJOR);
+}
+
+static size_t t_fill(value t, int part)
+{
+  return Long_val(Field(t, T_FILL(part)));
+}
+
+static void t_set_fill(value t, int part, size_t n)
+{
+  Field(t, T_FILL(part)) = Val_long(n);
+}
+
+static int t_minor_is_valid(value t)
+{
+  return (t_fill(t, T_MINOR) == 0 || value_is_young(Field(t, T_WITNESS)));
+}
+
+static int t_major_is_valid(value t)
+{
+  return (t_fill(t, T_MAJOR) == 0 ||
+          Long_val(Field(t, T_COMPACTIONS)) == (intnat)get_compactions());
+}
+
+static void t_major_set_valid(value t)
+{
+  Field(t, T_COMPACTIONS) = Val_long(get_compactions());
+}
+
+static int tables_valid (value t)
+{
+  return (t_minor_is_valid(t) && t_major_is_valid(t));
+}
+
 // Low-level maintenance functions
 
 // Move the (promoted) content of the minor table to the major table.
 // Does not allocate.
 static inline void flush_minor (value t, const int width)
 {
-  value minor = Field(t, T_MINOR);
   value major = Field(t, T_MAJOR);
-  size_t sz = table_slots(minor, width), fill = 0, i;
 
   /* preconditions */
   assert (!t_minor_is_valid(t));
   assert (t_major_is_valid(t));
   assert (has_capacity(table_slots(major, width),
-                       t_major_fill(t) + t_minor_fill(t) + 1));
+                       t_fill(t, T_MAJOR) + t_fill(t, T_MINOR) + 1));
 
-  for (i = 0; i < sz; ++i)
-  {
-    value k = Field(minor, i * width);
-    if (k == EMPTY) continue;
+  size_t n = move_entries(Field(t, T_MINOR), major, width);
 
-    // A minor collection happened: keys and values are no longer young
-    size_t index = table_find(major, k, width);
-    store_old_over_empty(major, index * width, k);
-    if (width == 2)
-      store_old_over_empty(major, index * width + 1, Field(minor, i * width + 1));
-    ++fill;
-  }
-
-  assert (fill == t_minor_fill(t));
-  Field(t, T_MAJOR_FILL) = Val_long(t_major_fill(t) + fill);
+  assert (n == t_fill(t, T_MINOR));
+  t_set_fill(t, T_MAJOR, t_fill(t, T_MAJOR) + n);
   t_major_set_valid(t);
 
   // Drop the minor table rather than clearing it: it has been promoted, so
   // clearing would require write barriers. Tables are cheap to regrow.
-  Field(t, T_MINOR_FILL) = Val_long(0);
+  t_set_fill(t, T_MINOR, 0);
   Store_field(t, T_MINOR, Atom(0));
   Store_field(t, T_WITNESS, Val_unit);
 
@@ -267,34 +291,20 @@ static inline void flush_minor (value t, const int width)
 static inline void grow_minor (value t, const int width)
 {
   CAMLparam1(t);
-  CAMLlocal2(minor_old, minor_new);
+  CAMLlocal1(minor_new);
 
   size_t sz = table_slots(Field(t, T_MINOR), width);
-  size_t new_sz = (sz < 2 ? 2 : sz * 2), fill = 0, i;
 
-  minor_new = alloc_table(new_sz * width);
+  minor_new = alloc_table((sz < 2 ? 2 : sz * 2) * width);
 
   // A GC happened during allocation, the keys of the minor table are no
   // longer young: drop the new table.
   if (!t_minor_is_valid(t))
     CAMLreturn0;
 
-  minor_old = Field(t, T_MINOR);
-
-  for (i = 0; i < sz; ++i)
-  {
-    value k = Field(minor_old, i * width);
-    if (k == EMPTY) continue;
-
-    size_t index = table_find(minor_new, k, width);
-    initialize_over_empty(minor_new, index * width, k);
-    if (width == 2)
-      initialize_over_empty(minor_new, index * width + 1,
-                            Field(minor_old, i * width + 1));
-    ++fill;
-  }
-
-  assert (fill == t_minor_fill(t));
+  size_t n = move_entries(Field(t, T_MINOR), minor_new, width);
+  assert (n == t_fill(t, T_MINOR));
+  (void)n;
   Store_field(t, T_MINOR, minor_new);
 
   CAMLreturn0;
@@ -306,40 +316,23 @@ static inline void grow_minor (value t, const int width)
 static inline void rehash_major (value t, size_t new_sz, const int width)
 {
   CAMLparam1(t);
-  CAMLlocal2(major_old, major_new);
+  CAMLlocal1(major_new);
 
   major_new = alloc_table(new_sz * width);
-  major_old = Field(t, T_MAJOR);
 
-  size_t sz = table_slots(major_old, width), fill = 0, i;
-
-  for (i = 0; i < sz; ++i)
-  {
-    value k = Field(major_old, i * width);
-    if (k == EMPTY) continue;
-
-    size_t index = table_find(major_new, k, width);
-    store_old_over_empty(major_new, index * width, k);
-    // Values can be young
-    if (width == 2)
-      initialize_over_empty(major_new, index * width + 1,
-                            Field(major_old, i * width + 1));
-    ++fill;
-  }
-
-  assert (fill == t_major_fill(t));
+  size_t n = move_entries(Field(t, T_MAJOR), major_new, width);
+  assert (n == t_fill(t, T_MAJOR));
+  (void)n;
   Store_field(t, T_MAJOR, major_new);
   t_major_set_valid(t);
 
   CAMLreturn0;
 }
 
-// Grow the major table to hold its content and the content of the minor
-// table. Might trigger a GC.
-static inline void realloc_major (value t, const int width)
+// Grow the major table to hold [target] entries. Might trigger a GC.
+static inline void realloc_major (value t, size_t target, const int width)
 {
   size_t size = table_slots(Field(t, T_MAJOR), width);
-  size_t target = t_major_fill(t) + t_minor_fill(t) + 1;
 
   if (size < 2)
     size = 2;
@@ -358,11 +351,13 @@ static inline void table_sync (value t, const int width)
 
   while (!tables_valid(t))
   {
-    size_t pending = t_minor_is_valid(t) ? 0 : t_minor_fill(t);
+    // Entries of a stale minor table move to the major table
+    size_t pending = t_minor_is_valid(t) ? 0 : t_fill(t, T_MINOR);
+    size_t needed = t_fill(t, T_MAJOR) + pending + 1;
     size_t major_slots = table_slots(Field(t, T_MAJOR), width);
 
-    if (!has_capacity(major_slots, t_major_fill(t) + pending + 1))
-      realloc_major(t, width);
+    if (!has_capacity(major_slots, needed))
+      realloc_major(t, needed, width);
     else if (!t_major_is_valid(t))
       rehash_major(t, major_slots, width);
     else
@@ -372,36 +367,21 @@ static inline void table_sync (value t, const int width)
   CAMLreturn0;
 }
 
-// Generic operations
+// Generic operations, on valid tables
 
-// Lookup, returns the slot index of [key] or -1
-static inline intnat lookup (value t, value key, const int width)
+// Index of [key] in the table [part], or -1 if absent
+static inline intnat lookup (value t, int part, value key, const int width)
 {
-  value table;
-  size_t fill;
-
-  if (value_is_young(key))
-  {
-    table = Field(t, T_MINOR);
-    fill = t_minor_fill(t);
-  }
-  else
-  {
-    table = Field(t, T_MAJOR);
-    fill = t_major_fill(t);
-  }
-
-  if (fill == 0)
+  // An empty table might have no slot at all
+  if (t_fill(t, part) == 0)
     return -1;
 
+  value table = Field(t, part);
   size_t index = table_find(table, key, width);
-  if (Field(table, index * width) != key)
-    return -1;
-
-  return index;
+  return (Field(table, index * width) == key ? (intnat)index : -1);
 }
 
-// Add a binding without allocating. Requires valid tables.
+// Add a binding without allocating.
 // Returns:
 // - EMPTY if [key] was absent and has been added,
 // - STALE if the table has to grow first (nothing changed),
@@ -410,50 +390,35 @@ static inline intnat lookup (value t, value key, const int width)
 static inline value try_add (value t, value key, value val, int overwrite,
                              const int width)
 {
-  int young = value_is_young(key);
-  value table = Field(t, young ? T_MINOR : T_MAJOR);
-  size_t fill = young ? t_minor_fill(t) : t_major_fill(t);
-  size_t index;
+  int part = key_part(key);
+  value table = Field(t, part);
+  size_t fill = t_fill(t, part);
+  intnat found = lookup(t, part, key, width);
 
-  // Key already present
-  if (fill > 0)
+  if (found >= 0)
   {
-    index = table_find(table, key, width);
-    if (Field(table, index * width) == key)
-    {
-      if (width == 1)
-        return key;
-      value prev = Field(table, index * width + 1);
-      if (overwrite)
-        Store_field(table, index * width + 1, val);
-      return prev;
-    }
+    if (width == SET_WIDTH)
+      return key;
+    value prev = Field(table, found * width + 1);
+    if (overwrite)
+      Store_field(table, found * width + 1, val);
+    return prev;
   }
 
   if (!has_capacity(table_slots(table, width), fill + 1))
     return STALE;
 
-  index = table_find(table, key, width);
+  fill_slot(table, table_find(table, key, width), key, val, width);
+  t_set_fill(t, part, fill + 1);
 
-  if (young)
+  // An empty table is always valid, record what it is now valid for
+  if (fill == 0)
   {
-    Store_field(table, index * width, key);
-    if (fill == 0)
+    if (part == T_MINOR)
       Store_field(t, T_WITNESS, key);
-    Field(t, T_MINOR_FILL) = Val_long(fill + 1);
-  }
-  else
-  {
-    store_old_over_empty(table, index * width, key);
-    // The table is valid: either already hashed for the current heap
-    // layout, or empty.
-    if (fill == 0)
+    else
       t_major_set_valid(t);
-    Field(t, T_MAJOR_FILL) = Val_long(fill + 1);
   }
-
-  if (width == 2)
-    Store_field(table, index * width + 1, val);
 
   return EMPTY;
 }
@@ -474,10 +439,10 @@ static inline value add_slow (value t, value key, value val, int overwrite,
       break;
 
     // Make room, this might trigger a GC so start over
-    if (value_is_young(key))
+    if (key_part(key) == T_MINOR)
       grow_minor(t, width);
     else
-      realloc_major(t, width);
+      realloc_major(t, t_fill(t, T_MAJOR) + 1, width);
   }
 
   // No allocation since [try_add]: [result] is still valid
@@ -502,40 +467,38 @@ value ml_physh_stale (value unit)
 
 value ml_physh_set_sync (value t)
 {
-  table_sync(t, 1);
+  table_sync(t, SET_WIDTH);
   return Val_unit;
 }
 
-// 0: absent, 1: present, 2: stale
 value ml_physh_set_mem_fast (value t, value obj)
 {
   if (!tables_valid(t))
-    return Val_int(2);
-  return Val_bool(lookup(t, obj, 1) >= 0);
+    return Val_int(NEED_SYNC);
+  return Val_int(lookup(t, key_part(obj), obj, SET_WIDTH) >= 0 ? PRESENT : ABSENT);
 }
 
-// Add [obj], returns its prior state.
-// 0: was absent, 1: was present, 2: stale (nothing done, use add_slow)
+// Add [obj], returns its prior state (NEED_SYNC: nothing done)
 value ml_physh_set_add_fast (value t, value obj)
 {
   if (!tables_valid(t))
-    return Val_int(2);
+    return Val_int(NEED_SYNC);
 
-  value result = try_add(t, obj, Val_unit, 0, 1);
-  return Val_int(result == STALE ? 2 : result == EMPTY ? 0 : 1);
+  value result = try_add(t, obj, Val_unit, 0, SET_WIDTH);
+  return Val_int(result == STALE ? NEED_SYNC : result == EMPTY ? ABSENT : PRESENT);
 }
 
 // Add [obj], returns true if it was already present
 value ml_physh_set_add_slow (value t, value obj)
 {
-  return Val_bool(add_slow(t, obj, Val_unit, 0, 1) != EMPTY);
+  return Val_bool(add_slow(t, obj, Val_unit, 0, SET_WIDTH) != EMPTY);
 }
 
 // Map stubs
 
 value ml_physh_map_sync (value t)
 {
-  table_sync(t, 2);
+  table_sync(t, MAP_WIDTH);
   return Val_unit;
 }
 
@@ -546,12 +509,9 @@ value ml_physh_map_find_fast (value t, value key)
   if (!tables_valid(t))
     return STALE;
 
-  intnat index = lookup(t, key, 2);
-  if (index < 0)
-    return EMPTY;
-
-  value table = Field(t, value_is_young(key) ? T_MINOR : T_MAJOR);
-  return Field(table, index * 2 + 1);
+  int part = key_part(key);
+  intnat index = lookup(t, part, key, MAP_WIDTH);
+  return (index < 0 ? EMPTY : Field(Field(t, part), index * MAP_WIDTH + 1));
 }
 
 // Bind [key] to [val] if absent, or if [overwrite].
@@ -561,11 +521,11 @@ value ml_physh_map_add_fast (value t, value key, value val, value overwrite)
 {
   if (!tables_valid(t))
     return STALE;
-  return try_add(t, key, val, Bool_val(overwrite), 2);
+  return try_add(t, key, val, Bool_val(overwrite), MAP_WIDTH);
 }
 
 // Same as add_fast, never returns STALE
 value ml_physh_map_add_slow (value t, value key, value val, value overwrite)
 {
-  return add_slow(t, key, val, Bool_val(overwrite), 2);
+  return add_slow(t, key, val, Bool_val(overwrite), MAP_WIDTH);
 }

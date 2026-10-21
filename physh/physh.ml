@@ -28,19 +28,23 @@ external sentinel_stale : unit -> Obj.t = "ml_physh_stale" [@@noalloc]
 let empty = sentinel_empty ()
 let stale = sentinel_stale ()
 
+(* Fast paths do not allocate. They fail when the table needs a sync
+   (after a minor collection or a compaction) or has to grow, the OCaml side
+   then calls a slow path. *)
+
+(* State of a key, as reported by the fast paths of sets.
+   Must match the enum in ml_physh.c. *)
+type state = Absent | Present | Need_sync
+[@@warning "-37"] (* built by C stubs *)
+
 module Set = struct
   type 'a t = table
 
-  (* Fast paths do not allocate. They fail when the table needs a sync
-     (after a minor collection or a compaction) or has to grow. *)
-
-  (* 0: absent, 1: present, 2: stale *)
-  external mem_fast : 'a t -> 'a -> int = "ml_physh_set_mem_fast" [@@noalloc]
+  external mem_fast : 'a t -> 'a -> state = "ml_physh_set_mem_fast" [@@noalloc]
   external sync : 'a t -> unit = "ml_physh_set_sync"
 
-  (* Add and return the prior state. 0: absent, 1: present, 2: stale (nothing
-     done) *)
-  external add_fast : 'a t -> 'a -> int = "ml_physh_set_add_fast" [@@noalloc]
+  (* Add and return the prior state ([Need_sync]: nothing done) *)
+  external add_fast : 'a t -> 'a -> state = "ml_physh_set_add_fast" [@@noalloc]
   external add_slow : 'a t -> 'a -> bool = "ml_physh_set_add_slow"
 
   let create = create_table
@@ -48,17 +52,17 @@ module Set = struct
 
   let add_if_new t x =
     match add_fast t x with
-    | 0 -> false
-    | 1 -> true
-    | _ -> add_slow t x
+    | Absent -> false
+    | Present -> true
+    | Need_sync -> add_slow t x
 
   let add t x = ignore (add_if_new t x : bool)
 
   let rec mem t x =
     match mem_fast t x with
-    | 0 -> false
-    | 1 -> true
-    | _ -> sync t; mem t x
+    | Absent -> false
+    | Present -> true
+    | Need_sync -> sync t; mem t x
 end
 
 module Map = struct
