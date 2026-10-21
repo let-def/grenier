@@ -720,6 +720,56 @@ let () =
     assert (P.Map.length m = 50000)
   );
 
+  (* ---- COMPACTION ---- *)
+
+  Printf.printf "\n--- Compaction ---\n%!";
+
+  (* Promote many objects, keep a sparse subset in the tables, drop the rest
+     and compact: the survivors are moved, the tables must be rehashed. *)
+  let sparse_survivors () =
+    let all = Array.init 400_000 (fun i -> ref i) in
+    gc_both ();
+    let keep = Array.init (400_000 / 64) (fun i -> all.(i * 64)) in
+    Array.fill all 0 400_000 (ref 0);
+    keep
+  in
+
+  with_label "map lookup after compaction" (fun () ->
+    let keep = sparse_survivors () in
+    let m = P.Map.create () in
+    Array.iter (fun k -> P.Map.add m k !k) keep;
+    ignore (P.Map.find m keep.(0));
+    gc_major ();
+    Gc.compact ();
+    Array.iter (fun k -> assert (P.Map.find m k = !k)) keep;
+    assert (P.Map.length m = Array.length keep)
+  );
+
+  with_label "set lookup after compaction" (fun () ->
+    let keep = sparse_survivors () in
+    let s = P.Set.create () in
+    Array.iter (P.Set.add s) keep;
+    ignore (P.Set.mem s keep.(0));
+    gc_major ();
+    Gc.compact ();
+    Array.iter (fun k -> assert (P.Set.mem s k)) keep;
+    assert (not (P.Set.mem s (ref 0)));
+    assert (P.Set.length s = Array.length keep)
+  );
+
+  with_label "add after compaction" (fun () ->
+    let keep = sparse_survivors () in
+    let m = P.Map.create () in
+    let half = Array.length keep / 2 in
+    Array.iteri (fun i k -> if i < half then P.Map.add m k !k) keep;
+    gc_major ();
+    Gc.compact ();
+    (* overwrite existing keys (must not duplicate them) and add new ones *)
+    Array.iter (fun k -> P.Map.add m k (- !k)) keep;
+    Array.iter (fun k -> assert (P.Map.find m k = - !k)) keep;
+    assert (P.Map.length m = Array.length keep)
+  );
+
   Printf.printf "\n--- Summary ---\n%!";
   Printf.printf "  Passed: %d / %d  (failed: %d)\n%!"
     !pass_count !test_count !fail_count;

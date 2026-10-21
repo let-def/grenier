@@ -10,3 +10,20 @@
  (name test_physh)
  (modules test_physh ref)
  (libraries physh))
+
+(executable
+ (name test_physh_domains)
+ (modules test_physh_domains)
+ (enabled_if (>= %{ocaml_version} 5.0))
+ (libraries physh))
+
+(rule
+ (alias runtest)
+ (deps ./test_physh.exe)
+ (action (run %{deps})))
+
+(rule
+ (alias runtest)
+ (enabled_if (>= %{ocaml_version} 5.0))
+ (deps ./test_physh_domains.exe)
+ (action (run %{deps})))
