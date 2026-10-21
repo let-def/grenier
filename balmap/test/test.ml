@@ -120,7 +120,7 @@ let test_map range =
     | Some a, Some b -> if a > b then Some (a - b) else None
     | Some a, None -> Some a | None, b -> b in
   same_map "merge" (BM.merge mf b c) (SM.merge mf s t);
-  let uf _ a b = if a = b then None else Some (a + b) in
+  let uf _ a b = if a = b then None else Some (2 * a + b) in
   same_map "union" (BM.union uf b c) (SM.union uf s t);
   check "compare" (compare 0 (BM.compare compare b c) = compare 0 (match compare (SM.cardinal s) (SM.cardinal t) with 0 -> SM.compare compare s t | n -> n));
   check "compare self" (BM.compare compare b bcopy = 0);
@@ -170,6 +170,11 @@ let test_set range =
   check "disjoint" (BS.disjoint b c = SS.disjoint s t);
   check "subset" (BS.subset b c = SS.subset s t);
   check "subset inter" (BS.subset (BS.inter b c) b);
+  (* small subsets of a large set: subset by lookups *)
+  let few = BS.filter (fun x -> x mod 37 = 0) b in
+  check "subset few" (BS.subset few b);
+  check "subset few'" (BS.subset (BS.add (range + 1) few) b = false);
+  check "subset few''" (BS.subset few c = SS.subset (SS.filter (fun x -> x mod 37 = 0) s) t);
   check "compare" (compare 0 (BS.compare b c) = compare 0 (match compare (SS.cardinal s) (SS.cardinal t) with 0 -> SS.compare s t | n -> n));
   check "equal self" (BS.equal b (BS.of_list (SS.elements s)));
   check "compare self" (BS.compare b (BS.of_list (List.rev (SS.elements s))) = 0);

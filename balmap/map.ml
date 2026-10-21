@@ -41,14 +41,20 @@ struct
   let singleton k v =
     Bt2.node Bt2.leaf k v Bt2.leaf
 
+  (* Like Stdlib, operations return their argument (physically) when the
+     result is equal to it. *)
   let rec add k v = function
     | Leaf -> singleton k v
-    | Node (_, l, k', v', r) ->
+    | Node (_, l, k', v', r) as t ->
       let c = O.compare k k' in
       if c < 0 then
-        Bt2.node (add k v l) k' v' r
+        let l' = add k v l in
+        if l' == l then t else Bt2.node l' k' v' r
       else if c > 0 then
-        Bt2.node l k' v' (add k v r)
+        let r' = add k v r in
+        if r' == r then t else Bt2.node l k' v' r'
+      else if v == v' then
+        t
       else
         Bt2.node l k v r
 
@@ -119,20 +125,33 @@ struct
       let r' = merge f r1 r2 in
       maybe_node l' k2 v' r'
 
+  (* The smaller map is split by the root of the larger one. *)
   let rec union f t1 t2 =
     match t1, t2 with
     | Leaf, t | t, Leaf -> t
-    | t1, Node (_, l2, k2, v2, r2) ->
-      let l1, v1, r1 = split k2 t1 in
-      let l' = union f l1 l2 in
-      match v1 with
-      | None ->
-        let r' = union f r1 r2 in
-        Bt2.node l' k2 v2 r'
-      | Some v1 ->
-        let v' = f k2 v1 v2 in
-        let r' = union f r1 r2 in
-        maybe_node l' k2 v' r'
+    | Node (s1, l1, k1, v1, r1), Node (s2, l2, k2, v2, r2) ->
+      if s1 >= s2 then
+        let l2, v2, r2 = split k1 t2 in
+        let l' = union f l1 l2 in
+        match v2 with
+        | None ->
+          let r' = union f r1 r2 in
+          if l' == l1 && r' == r1 then t1 else Bt2.node l' k1 v1 r'
+        | Some v2 ->
+          let v' = f k1 v1 v2 in
+          let r' = union f r1 r2 in
+          maybe_node l' k1 v' r'
+      else
+        let l1, v1, r1 = split k2 t1 in
+        let l' = union f l1 l2 in
+        match v1 with
+        | None ->
+          let r' = union f r1 r2 in
+          if l' == l2 && r' == r2 then t2 else Bt2.node l' k2 v2 r'
+        | Some v1 ->
+          let v' = f k2 v1 v2 in
+          let r' = union f r1 r2 in
+          maybe_node l' k2 v' r'
 
   let cardinal = Bt2.size
 
@@ -214,12 +233,12 @@ struct
 
   let rec filter f = function
     | Leaf -> Bt2.leaf
-    | Node (_, l, k, v, r) ->
+    | Node (_, l, k, v, r) as t ->
       let l' = filter f l in
       let keep = f k v in
       let r' = filter f r in
       if keep then
-        Bt2.node l' k v r'
+        if l' == l && r' == r then t else Bt2.node l' k v r'
       else
         Bt2.join l' r'
 

@@ -38,16 +38,20 @@ struct
   let singleton k =
     Bt1.node Bt1.leaf k Bt1.leaf
 
+  (* Like Stdlib, operations return their argument (physically) when the
+     result is equal to it. *)
   let rec add k = function
     | Leaf -> singleton k
-    | Node (_, l, k', r) ->
+    | Node (_, l, k', r) as t ->
       let c = O.compare k k' in
       if c < 0 then
-        Bt1.node (add k l) k' r
+        let l' = add k l in
+        if l' == l then t else Bt1.node l' k' r
       else if c > 0 then
-        Bt1.node l k' (add k r)
+        let r' = add k r in
+        if r' == r then t else Bt1.node l k' r'
       else
-        Bt1.node l k r
+        t
 
   let rec remove k = function
     | Leaf -> raise Not_found
@@ -77,17 +81,53 @@ struct
       else
         (l, true, r)
 
+  (* The smaller set is split by the root of the larger one. *)
   let rec union t1 t2 =
     match t1, t2 with
     | Leaf, t | t, Leaf -> t
-    | t1, Node (_, l2, k2, r2) ->
-      let l1, _, r1 = split k2 t1 in
-      let l' = union l1 l2 in
-      let r' = union r1 r2 in
-      Bt1.node l' k2 r'
+    | Node (s1, l1, k1, r1), Node (s2, l2, k2, r2) ->
+      if s1 >= s2 then
+        if s2 = 1 then add k2 t1 else
+          let l2, _, r2 = split k1 t2 in
+          let l = union l1 l2 in
+          let r = union r1 r2 in
+          if l == l1 && r == r1 then t1 else Bt1.node l k1 r
+      else
+        if s1 = 1 then add k1 t2 else
+          let l1, _, r1 = split k2 t1 in
+          let l = union l1 l2 in
+          let r = union r1 r2 in
+          if l == l2 && r == r2 then t2 else Bt1.node l k2 r
 
   let union3 l k r =
     union (add k l) r
+
+  let rec first = function
+    | Leaf -> assert false
+    | Node (_, Leaf, k, _) -> k
+    | Node (_, l, _, _) -> first l
+
+  let rec last = function
+    | Leaf -> assert false
+    | Node (_, _, k, Leaf) -> k
+    | Node (_, _, _, r) -> last r
+
+  (* [try_node l k r] and [try_join l r] are [node] and [join] when the
+     elements are still in order (e.g. after [map] with a monotonic
+     function), and fall back to a union otherwise. *)
+  let try_node l k r =
+    if (match l with Leaf -> true | Node _ -> O.compare (last l) k < 0) &&
+       (match r with Leaf -> true | Node _ -> O.compare k (first r) < 0)
+    then Bt1.node l k r
+    else union3 l k r
+
+  let try_join l r =
+    match l, r with
+    | Leaf, t | t, Leaf -> t
+    | Node _, Node _ ->
+      if O.compare (last l) (first r) < 0
+      then Bt1.join l r
+      else union l r
 
   let cardinal = Bt1.size
 
@@ -164,13 +204,14 @@ struct
 
   let rec filter f = function
     | Leaf -> Bt1.leaf
-    | Node (_, l, k, r) ->
+    | Node (_, l, k, r) as t ->
       let l' = filter f l in
       let keep = f k in
       let r' = filter f r in
-      if keep
-      then Bt1.node l' k r'
-      else Bt1.join l' r'
+      if keep then
+        if l' == l && r' == r then t else Bt1.node l' k r'
+      else
+        Bt1.join l' r'
 
   let rec filter_map f = function
     | Leaf -> Bt1.leaf
@@ -179,8 +220,8 @@ struct
       let k' = f k in
       let r' = filter_map f r in
       match k' with
-      | None -> union l' r'
-      | Some k' -> union3 l' k' r'
+      | None -> try_join l' r'
+      | Some k' -> try_node l' k' r'
 
   let rec partition f = function
     | Leaf -> Bt1.leaf, Bt1.leaf
@@ -193,8 +234,24 @@ struct
       else
         (Bt1.join l1 r1, Bt1.node l2 k r2)
 
-  let of_list l =
-    List.fold_left (fun t a -> add a t) empty l
+  (* [build n l] is the balanced tree of the first [n] elements of the
+     sorted list [l], and the remaining elements. *)
+  let rec build n l =
+    if n = 0 then Bt1.leaf, l else
+      let nl = (n - 1) / 2 in
+      let left, l = build nl l in
+      match l with
+      | [] -> assert false
+      | k :: l ->
+        let right, l = build (n - 1 - nl) l in
+        Bt1.node left k right, l
+
+  let of_list = function
+    | [] -> empty
+    | [k] -> singleton k
+    | l ->
+      let l = List.sort_uniq O.compare l in
+      fst (build (List.length l) l)
 
   let elements t =
     let rec aux t acc = match t with
@@ -281,11 +338,11 @@ struct
 
   let rec map f = function
     | Leaf -> Bt1.leaf
-    | Node (_, l, k, r) ->
+    | Node (_, l, k, r) as t ->
       let l' = map f l in
       let k' = f k in
       let r' = map f r in
-      union3 l' k' r'
+      if l' == l && k' == k && r' == r then t else try_node l' k' r'
 
   let rec seq_enum enum () =
     match enum with
@@ -332,13 +389,28 @@ struct
   let of_seq seq =
     add_seq seq empty
 
+  (* [sub l1 k1 r1 t2] holds iff [l1], [k1] and [r1] are in [t2]. This is
+     Stdlib's algorithm, without allocating: the node of [l1], [k1] and an
+     empty tree (or of an empty tree, [k1] and [r1]) is passed in pieces. *)
+  let rec sub l1 k1 r1 t2 =
+    match t2 with
+    | Leaf -> false
+    | Node (_, l2, k2, r2) ->
+      let c = O.compare k1 k2 in
+      if c = 0 then
+        subset_ l1 l2 && subset_ r1 r2
+      else if c < 0 then
+        sub l1 k1 Bt1.leaf l2 && subset_ r1 t2
+      else
+        sub Bt1.leaf k1 r1 r2 && subset_ l1 t2
+
+  and subset_ t1 t2 =
+    match t1 with
+    | Leaf -> true
+    | Node (_, l1, k1, r1) -> t1 == t2 || sub l1 k1 r1 t2
+
   let subset t1 t2 =
-    cardinal t1 <= cardinal t2 &&
-    let rec aux = function
-      | Bt1.Leaf -> true
-      | Bt1.Node (_, l, k, r) -> mem k t2 && aux l && aux r
-    in
-    aux t1
+    cardinal t1 <= cardinal t2 && subset_ t1 t2
 
   let rec disjoint t1 t2 =
     match t1, t2 with
@@ -359,6 +431,8 @@ struct
       let r = diff r1 r2 in
       if drop then
         Bt1.join l r
+      else if l == l1 && r == r1 then
+        t1
       else
         Bt1.node l k r
 
@@ -369,10 +443,12 @@ struct
       let l2, keep, r2 = split k1 t2 in
       let l = inter l1 l2 in
       let r = inter r1 r2 in
-      if keep then
-        Bt1.node l k1 r
-      else
+      if not keep then
         Bt1.join l r
+      else if l == l1 && r == r1 then
+        t1
+      else
+        Bt1.node l k1 r
 
   let to_list = elements
 
