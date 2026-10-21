@@ -1,3 +1,10 @@
+unreleased
+--------------------------
+
+Add a new "Maxtrie" library: immutable sets and maps over non-negative
+integers, represented as Patricia tries whose nodes hoist the maximum of their
+subtree.
+
 v0.16 Sat Feb  7 11:19:53 JST 2026
 --------------------------
 

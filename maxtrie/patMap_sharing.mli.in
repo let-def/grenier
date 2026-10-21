@@ -1,0 +1,15 @@
+
+(** {1 Sharing} *)
+
+(**Comparisons with sharing. [Sharing.equal eq] and [Sharing.compare cmp]
+   return the same results as [equal eq] and [compare cmp], but as a side
+   effect they make the equal subtrees of their arguments physically equal.
+   Later comparisons of these maps are then faster, and duplicate subtrees
+   can be reclaimed. A subtree is replaced with one whose values are related
+   by [eq] (or [cmp] returns [0]): use these functions only when such values
+   are interchangeable, for instance with a structural equality. This is
+   invisible to the other operations and safe with concurrent domains. *)
+module Sharing : sig
+  val equal: ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
+  val compare: ('a -> 'a -> int) -> 'a t -> 'a t -> int
+end

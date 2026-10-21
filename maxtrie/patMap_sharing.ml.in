@@ -1,0 +1,45 @@
+
+(* -------------------------------------------------------------------------- *)
+(* Sharing (only in PatMapSharing, whose children are mutable). *)
+
+(* Comparisons that, as a side effect, make equal subtrees of their
+   arguments physically equal (see [PatSet.Sharing]). Two subtrees are
+   unified when they have the same keys and values related by the equality
+   or comparison function, so this function must only relate interchangeable
+   values. The copy to keep is chosen by [Bit_lib.share_choose]. *)
+module Sharing = struct
+  let[@inline] keep_first (a : 'a t) (b : 'a t) = Bit_lib.share_choose a b == a
+
+  let rec equal eq a b =
+    a == b ||
+    match a, b with
+    | Node na, Node nb ->
+      na.k = nb.k && eq na.v nb.v &&
+      (na.l == nb.l ||
+       (equal eq na.l nb.l &&
+        (if keep_first na.l nb.l then nb.l <- na.l else na.l <- nb.l; true))) &&
+      (na.r == nb.r ||
+       (equal eq na.r nb.r &&
+        (if keep_first na.r nb.r then nb.r <- na.r else na.r <- nb.r; true)))
+    | _ -> false
+
+  let rec compare cmp a b =
+    if a == b then 0 else
+    match a, b with
+    | Empty, _ -> -1
+    | _, Empty -> 1
+    | Node na, Node nb ->
+      let c = Int.compare na.k nb.k in
+      if c <> 0 then c else
+      let c = cmp na.v nb.v in
+      if c <> 0 then c else
+      let c = if na.l == nb.l then 0 else compare cmp na.l nb.l in
+      if c <> 0 then c else begin
+        if na.l != nb.l then
+          (if keep_first na.l nb.l then nb.l <- na.l else na.l <- nb.l);
+        let c = if na.r == nb.r then 0 else compare cmp na.r nb.r in
+        if c = 0 && na.r != nb.r then
+          (if keep_first na.r nb.r then nb.r <- na.r else na.r <- nb.r);
+        c
+      end
+end
