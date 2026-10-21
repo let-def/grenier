@@ -401,29 +401,37 @@ static inline intnat lookup (value t, value key, const int width)
   return index;
 }
 
-// Add or update a binding without allocating.
-// Requires valid tables, returns 0 if the table has to grow first.
-static inline int try_add (value t, value key, value val, const int width)
+// Add a binding without allocating. Requires valid tables.
+// Returns:
+// - EMPTY if [key] was absent and has been added,
+// - STALE if the table has to grow first (nothing changed),
+// - otherwise [key] was present: for a map, its previous value (replaced by
+//   [val] if [overwrite]), for a set, [key].
+static inline value try_add (value t, value key, value val, int overwrite,
+                             const int width)
 {
   int young = value_is_young(key);
   value table = Field(t, young ? T_MINOR : T_MAJOR);
   size_t fill = young ? t_minor_fill(t) : t_major_fill(t);
   size_t index;
 
-  // Key already present: just update the value
+  // Key already present
   if (fill > 0)
   {
     index = table_find(table, key, width);
     if (Field(table, index * width) == key)
     {
-      if (width == 2)
+      if (width == 1)
+        return key;
+      value prev = Field(table, index * width + 1);
+      if (overwrite)
         Store_field(table, index * width + 1, val);
-      return 1;
+      return prev;
     }
   }
 
   if (!has_capacity(table_slots(table, width), fill + 1))
-    return 0;
+    return STALE;
 
   index = table_find(table, key, width);
 
@@ -447,17 +455,22 @@ static inline int try_add (value t, value key, value val, const int width)
   if (width == 2)
     Store_field(table, index * width + 1, val);
 
-  return 1;
+  return EMPTY;
 }
 
-static inline void add_slow (value t, value key, value val, const int width)
+// Same as [try_add], but never returns STALE: syncs and grows the tables as
+// needed. Can trigger a GC.
+static inline value add_slow (value t, value key, value val, int overwrite,
+                              const int width)
 {
   CAMLparam3(t, key, val);
+  value result;
 
   while (1)
   {
     table_sync(t, width);
-    if (try_add(t, key, val, width))
+    result = try_add(t, key, val, overwrite, width);
+    if (result != STALE)
       break;
 
     // Make room, this might trigger a GC so start over
@@ -467,7 +480,8 @@ static inline void add_slow (value t, value key, value val, const int width)
       realloc_major(t, width);
   }
 
-  CAMLreturn0;
+  // No allocation since [try_add]: [result] is still valid
+  CAMLreturn(result);
 }
 
 // Sentinels
@@ -500,15 +514,21 @@ value ml_physh_set_mem_fast (value t, value obj)
   return Val_bool(lookup(t, obj, 1) >= 0);
 }
 
+// Add [obj], returns its prior state.
+// 0: was absent, 1: was present, 2: stale (nothing done, use add_slow)
 value ml_physh_set_add_fast (value t, value obj)
 {
-  return Val_bool(tables_valid(t) && try_add(t, obj, Val_unit, 1));
+  if (!tables_valid(t))
+    return Val_int(2);
+
+  value result = try_add(t, obj, Val_unit, 0, 1);
+  return Val_int(result == STALE ? 2 : result == EMPTY ? 0 : 1);
 }
 
+// Add [obj], returns true if it was already present
 value ml_physh_set_add_slow (value t, value obj)
 {
-  add_slow(t, obj, Val_unit, 1);
-  return Val_unit;
+  return Val_bool(add_slow(t, obj, Val_unit, 0, 1) != EMPTY);
 }
 
 // Map stubs
@@ -534,13 +554,18 @@ value ml_physh_map_find_fast (value t, value key)
   return Field(table, index * 2 + 1);
 }
 
-value ml_physh_map_add_fast (value t, value key, value val)
+// Bind [key] to [val] if absent, or if [overwrite].
+// Returns the previous value, EMPTY if [key] was absent, STALE if nothing was
+// done (use add_slow).
+value ml_physh_map_add_fast (value t, value key, value val, value overwrite)
 {
-  return Val_bool(tables_valid(t) && try_add(t, key, val, 2));
+  if (!tables_valid(t))
+    return STALE;
+  return try_add(t, key, val, Bool_val(overwrite), 2);
 }
 
-value ml_physh_map_add_slow (value t, value key, value val)
+// Same as add_fast, never returns STALE
+value ml_physh_map_add_slow (value t, value key, value val, value overwrite)
 {
-  add_slow(t, key, val, 2);
-  return Val_unit;
+  return add_slow(t, key, val, Bool_val(overwrite), 2);
 }

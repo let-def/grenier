@@ -13,6 +13,10 @@ module Set : sig
   val length : 'a t -> int
   val mem : 'a t -> 'a -> bool
   val add : 'a t -> 'a -> unit
+
+  (** [add_if_new t x] adds [x] to [t] and returns [true] if [x] was
+      already present (in which case [t] is unchanged). *)
+  val add_if_new : 'a t -> 'a -> bool
 end
 
 module Map : sig
@@ -21,4 +25,14 @@ module Map : sig
   val length : ('a,'b) t -> int
   val find : ('a,'b) t -> 'a -> 'b
   val add : ('a,'b) t -> 'a -> 'b -> unit
+
+  (** [add_if_new t k v] binds [k] to [v] if [k] is not bound.
+      Returns the previous binding: [None] if [k] was absent (it is now bound
+      to [v]), [Some v'] if [k] was bound to [v'] (left unchanged). *)
+  val add_if_new : ('a,'b) t -> 'a -> 'b -> 'b option
+
+  (** [add_overwrite t k v] binds [k] to [v], replacing any existing binding.
+      Returns the previous binding: [None] if [k] was absent, [Some v'] if
+      [k] was bound to [v']. *)
+  val add_overwrite : ('a,'b) t -> 'a -> 'b -> 'b option
 end

@@ -720,6 +720,100 @@ let () =
     assert (P.Map.length m = 50000)
   );
 
+  (* ---- ADD_IF_NEW / ADD_OVERWRITE ---- *)
+
+  Printf.printf "\n--- add_if_new / add_overwrite ---\n%!";
+
+  with_label "set add_if_new basic" (fun () ->
+    let s = P.Set.create () in
+    let x = ref 1 and y = ref 1 in
+    assert (not (P.Set.add_if_new s x));
+    assert (P.Set.add_if_new s x);
+    assert (not (P.Set.add_if_new s y));
+    assert (P.Set.length s = 2);
+    let si = P.Set.create () in
+    assert (not (P.Set.add_if_new si (D.int 3)));
+    assert (P.Set.add_if_new si (D.int 3));
+    assert (P.Set.length si = 1)
+  );
+
+  with_label "map add_if_new / add_overwrite basic" (fun () ->
+    let m = P.Map.create () in
+    let k = ref 0 in
+    assert (P.Map.add_if_new m k "a" = None);
+    assert (P.Map.add_if_new m k "b" = Some "a");
+    assert (P.Map.find m k = "a");
+    assert (P.Map.add_overwrite m k "c" = Some "a");
+    assert (P.Map.find m k = "c");
+    let k' = ref 0 in
+    assert (P.Map.add_overwrite m k' "d" = None);
+    assert (P.Map.find m k' = "d");
+    assert (P.Map.length m = 2)
+  );
+
+  (* Random operations on young, old and immediate keys, checked against a
+     model of the prior state of each key. *)
+  let random_keys n =
+    let old = Array.init (n / 2) (fun i -> ref i) in
+    gc_both ();
+    Array.init n (fun i ->
+        if i mod 5 = 0 then D.int i
+        else if i mod 2 = 0 then D.obj old.(i / 2)
+        else D.obj (ref i))
+  in
+
+  with_label "set add_if_new vs model under gc" (fun () ->
+    let s = P.Set.create () in
+    let ks = random_keys 20_000 in
+    let present = Array.make (Array.length ks) false in
+    for r = 1 to 60_000 do
+      let i = Random.int (Array.length ks) in
+      assert (P.Set.add_if_new s ks.(i) = present.(i));
+      present.(i) <- true;
+      if r mod 1000 = 0 then gc_noise ();
+      if r mod 5000 = 0 then gc_major ()
+    done;
+    Array.iteri (fun i k -> assert (P.Set.mem s k = present.(i))) ks;
+    let n = Array.fold_left (fun n b -> if b then n + 1 else n) 0 present in
+    assert (P.Set.length s = n)
+  );
+
+  with_label "map add_if_new / add_overwrite vs model under gc" (fun () ->
+    let m = P.Map.create () in
+    let ks = random_keys 20_000 in
+    let model = Array.make (Array.length ks) None in
+    for r = 1 to 60_000 do
+      let i = Random.int (Array.length ks) in
+      let v = Random.int 1000 in
+      if Random.bool () then begin
+        assert (P.Map.add_if_new m ks.(i) v = model.(i));
+        if model.(i) = None then model.(i) <- Some v
+      end else begin
+        assert (P.Map.add_overwrite m ks.(i) v = model.(i));
+        model.(i) <- Some v
+      end;
+      if r mod 1000 = 0 then gc_noise ();
+      if r mod 5000 = 0 then gc_major ()
+    done;
+    Array.iteri (fun i k ->
+        match model.(i) with
+        | None -> (try ignore (P.Map.find m k); assert false with Not_found -> ())
+        | Some v -> assert (P.Map.find m k = v)) ks
+  );
+
+  with_label "set add_if_new: count nodes of a fresh DAG" (fun () ->
+    (* 2^k paths, k+1 distinct nodes: sharing must be detected *)
+    let rec build k = if k = 0 then `Leaf else let t = build (k - 1) in `Node (t, t) in
+    let t = build 30 in
+    let s = P.Set.create () in
+    let rec visit t =
+      if not (P.Set.add_if_new s t) then
+        match t with `Leaf -> () | `Node (a, b) -> visit a; visit b
+    in
+    visit t;
+    assert (P.Set.length s = 31)
+  );
+
   (* ---- COMPACTION ---- *)
 
   Printf.printf "\n--- Compaction ---\n%!";
