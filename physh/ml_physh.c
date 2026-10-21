@@ -423,6 +423,64 @@ static inline value try_add (value t, value key, value val, int overwrite,
   return EMPTY;
 }
 
+// Empty the slot at [i] by backward-shift deletion: entries that follow in
+// the same cluster move back when their probe sequence goes through [i].
+// No tombstones, so lookups stop at the first EMPTY slot as usual.
+// Overwritten slots hold heap values: use Store_field for the deletion
+// barrier. Does not allocate.
+static inline void remove_at (value table, size_t i, const int width)
+{
+  size_t slots = table_slots(table, width), mask = slots - 1, j = i;
+
+  while (1)
+  {
+    j = (j + 1) & mask;
+    value k = Field(table, j * width);
+    if (k == EMPTY)
+      break;
+
+    // [k] can move to [i] if [i] lies on its probe sequence, in [home, j)
+    size_t home = table_hash(k, slots);
+    if (((i - home) & mask) < ((j - home) & mask))
+    {
+      Store_field(table, i * width, k);
+      if (width == MAP_WIDTH)
+        Store_field(table, i * width + 1, Field(table, j * width + 1));
+      i = j;
+    }
+  }
+
+  Store_field(table, i * width, EMPTY);
+  if (width == MAP_WIDTH)
+    Store_field(table, i * width + 1, EMPTY);
+}
+
+// Remove [key] from a valid table. Does not allocate.
+// Returns EMPTY if [key] was absent, otherwise its value for a map, [key]
+// for a set.
+static inline value try_remove (value t, value key, const int width)
+{
+  int part = key_part(key);
+  intnat found = lookup(t, part, key, width);
+
+  if (found < 0)
+    return EMPTY;
+
+  value table = Field(t, part);
+  value prev = (width == MAP_WIDTH ? Field(table, found * width + 1) : key);
+  size_t fill = t_fill(t, part) - 1;
+
+  remove_at(table, found, width);
+  t_set_fill(t, part, fill);
+
+  // The witness can outlive its entry: it stays alive (and young) until the
+  // next minor collection, like the other keys. Release it with the last key.
+  if (part == T_MINOR && fill == 0)
+    Store_field(t, T_WITNESS, Val_unit);
+
+  return prev;
+}
+
 // Same as [try_add], but never returns STALE: syncs and grows the tables as
 // needed. Can trigger a GC.
 static inline value add_slow (value t, value key, value val, int overwrite,
@@ -494,6 +552,14 @@ value ml_physh_set_add_slow (value t, value obj)
   return Val_bool(add_slow(t, obj, Val_unit, 0, SET_WIDTH) != EMPTY);
 }
 
+// Remove [obj], returns its prior state (NEED_SYNC: nothing done)
+value ml_physh_set_remove_fast (value t, value obj)
+{
+  if (!tables_valid(t))
+    return Val_int(NEED_SYNC);
+  return Val_int(try_remove(t, obj, SET_WIDTH) == EMPTY ? ABSENT : PRESENT);
+}
+
 // Map stubs
 
 value ml_physh_map_sync (value t)
@@ -528,4 +594,13 @@ value ml_physh_map_add_fast (value t, value key, value val, value overwrite)
 value ml_physh_map_add_slow (value t, value key, value val, value overwrite)
 {
   return add_slow(t, key, val, Bool_val(overwrite), MAP_WIDTH);
+}
+
+// Unbind [key]. Returns the previous value, EMPTY if [key] was absent, STALE
+// if a sync is needed (nothing done).
+value ml_physh_map_remove_fast (value t, value key)
+{
+  if (!tables_valid(t))
+    return STALE;
+  return try_remove(t, key, MAP_WIDTH);
 }
