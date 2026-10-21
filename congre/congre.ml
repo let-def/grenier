@@ -205,6 +205,9 @@ let restore (Snapshot sn) =
     sn.sn_changes <- []
   in
   backtrack sn;
+  (* [snapshot] propagates first: nothing was pending when [sn] was taken. *)
+  sn.sn_graph.gr_pending_equalities <- [];
+  sn.sn_graph.gr_pending_applications <- [];
   sn.sn_graph.gr_snapshot <- sn
 
 let invalid_snapshot =
