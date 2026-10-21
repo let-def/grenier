@@ -645,6 +645,35 @@ let () =
     assert (P.Map.fold (fun _ v acc -> acc + v) m 0 = !sum)
   );
 
+  (* The minor table is flushed into the major table while the major table is
+     being visited: the flushed keys must be visited once. *)
+  with_label "iter: minor table flushed during the iteration" (fun () ->
+    let old = Array.init 10_000 (fun i -> ref i) in
+    gc_both ();
+    let young = Array.init 1000 (fun i -> ref (-i)) in
+    let s = P.Set.create () and m = P.Map.create () in
+    Array.iter (fun k -> P.Set.add s k; P.Map.add m k !k) old;
+    Array.iter (fun k -> P.Set.add s k; P.Map.add m k !k) young;
+    let flush_now mem = gc_minor (); assert (mem ()) in
+    let count = ref 0 and seen = R.Set.create () in
+    P.Set.iter (fun k ->
+        if !count = 0 then flush_now (fun () -> P.Set.mem s k);
+        incr count;
+        assert (not (R.Set.mem seen k));
+        R.Set.add seen k) s;
+    assert (!count = 11_000);
+    let count = ref 0 and sum = ref 0 in
+    let young' = Array.init 1000 (fun i -> ref (-i)) in
+    Array.iter (fun k -> P.Map.add m k 0) young';
+    P.Map.iter (fun k v ->
+        if !count = 0 then flush_now (fun () -> P.Map.mem m k);
+        incr count;
+        assert (!k = v || v = 0);
+        sum := !sum + v) m;
+    assert (!count = 12_000);
+    assert (!sum = Array.fold_left (fun s k -> s + !k) 0 old - 499_500)
+  );
+
   with_label "clear / reset and reuse under gc" (fun () ->
     let s = P.Set.create () and m = P.Map.create () in
     for round = 1 to 30 do

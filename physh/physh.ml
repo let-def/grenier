@@ -51,28 +51,6 @@ let clear t =
   t.minor_fill <- 0;
   t.major_fill <- 0
 
-(* [fold_slots width f t acc] calls [f table i] for each used slot.
-
-   Iterating does not require a sync: the GC keeps the keys in the arrays
-   up-to-date, only their positions can be stale. But a sync can occur during
-   the iteration (a lookup in [f]): flushing the minor table inserts its
-   entries in the major table, in place. Iterate over a copy of the major
-   table and the minor table as it was at the start: each entry is seen once.
-   Modifying the table during the iteration is unspecified, but safe. *)
-let fold_slots width f t acc =
-  let minor : Obj.t array = Obj.obj t.minor in
-  let major : Obj.t array =
-    if t.major_fill = 0 then [||] else Array.copy (Obj.obj t.major) in
-  let visit (table : Obj.t array) acc =
-    let acc = ref acc in
-    for i = 0 to Array.length table / width - 1 do
-      if Array.unsafe_get table (i * width) != empty then
-        acc := f table (i * width) !acc
-    done;
-    !acc
-  in
-  visit minor (visit major acc)
-
 (* Fast paths do not allocate. They fail when the table needs a sync
    (after a minor collection or a compaction) or has to grow, the OCaml side
    then calls a slow path. *)
@@ -82,7 +60,7 @@ let fold_slots width f t acc =
 type state = Absent | Present | Need_sync
 [@@warning "-37"] (* built by C stubs *)
 
-module Set = struct
+module Set_core = struct
   type 'a t = table
 
   external mem_fast : 'a t -> 'a -> state = "ml_physh_set_mem_fast" [@@noalloc]
@@ -119,6 +97,51 @@ module Set = struct
     match remove_fast t x with
     | Absent | Present -> ()
     | Need_sync -> sync t; remove t x
+end
+
+(* [fold_slots width f t acc] calls [f table i] for each used slot.
+
+   Iterating does not require a sync: the GC keeps the keys in the arrays
+   up-to-date, only their positions can be stale. Visit the major table,
+   then the minor table, as they were at the start.
+
+   A lookup in [f] can sync the table: flushing the minor table inserts its
+   entries in the major table, in place, while we are visiting it. Detect it
+   (the minor table is replaced) and from then on, skip the keys of the
+   minor table we started with: they are visited with the minor table. This
+   costs O(minor) only if a flush happens, the major table is never copied.
+
+   Modifying the table during the iteration is unspecified, but safe. *)
+let fold_slots width f t acc =
+  let major : Obj.t array = Obj.obj t.major in
+  let minor : Obj.t array = Obj.obj t.minor in
+  let flushed = ref None in
+  let skip k =
+    match !flushed with
+    | Some s -> Set_core.mem s k
+    | None when t.minor == Obj.repr minor -> false
+    | None ->
+      let s = Set_core.create () in
+      for i = 0 to Array.length minor / width - 1 do
+        let k = Array.unsafe_get minor (i * width) in
+        if k != empty then Set_core.add s k
+      done;
+      flushed := Some s;
+      Set_core.mem s k
+  in
+  let acc = ref acc in
+  for i = 0 to Array.length major / width - 1 do
+    let k = Array.unsafe_get major (i * width) in
+    if k != empty && not (skip k) then acc := f major (i * width) !acc
+  done;
+  for i = 0 to Array.length minor / width - 1 do
+    if Array.unsafe_get minor (i * width) != empty then
+      acc := f minor (i * width) !acc
+  done;
+  !acc
+
+module Set = struct
+  include Set_core
 
   let fold f t acc =
     fold_slots 1 (fun table i acc -> f (Obj.obj (Array.unsafe_get table i)) acc) t acc
