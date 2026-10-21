@@ -81,19 +81,17 @@ module Make(M : MEASURE) = struct
     in
     rot_right l y r k
 
-  (** Balance trees leaning to the right *)
-  let rec node_left l x r =
-    if disbalanced (size l) (size r) then
-      inc_left l x r node_left
+  (** Balance a node in both directions: a rotation that fixes one side can
+      leave the other side too heavy, so the nodes it builds are balanced the
+      same way. *)
+  let rec node_balance l x r =
+    let sl = size l and sr = size r in
+    if disbalanced sl sr then
+      inc_left l x r node_balance
+    else if disbalanced sr sl then
+      inc_right l x r node_balance
     else
       node_ l x r
-
-  (** Balance trees leaning to the left *)
-  let rec node_right l y r =
-    if disbalanced (size r) (size l) then
-      inc_right l y r node_right
-    else
-      node_ l y r
 
   (** Public interface *)
 
@@ -101,10 +99,7 @@ module Make(M : MEASURE) = struct
 
   let node l x r = match l, r with
     | Leaf, Leaf -> node_ leaf x leaf
-    | l, r when size l < size r ->
-      node_left l x r
-    | l, r ->
-      node_right l x r
+    | l, r -> node_balance l x r
 
   let rec join l r = match l, r with
     | Leaf, t | t, Leaf -> t

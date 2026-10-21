@@ -1,5 +1,5 @@
 (* Differential test of Balmap.Map / Balmap.Set against Stdlib, with the
-   size, order and depth invariants of the trees. *)
+   size, order, balance and depth invariants of the trees. *)
 module K = Int
 module BM = Balmap.Map.Make (K)
 module SM = Stdlib.Map.Make (K)
@@ -23,7 +23,7 @@ let rec ok1 : _ Balmap.Set.balset -> bool = function
 
 let smaller_ell smin smax = (smin < smax) && ((smin land smax) lsl 1 < smax)
 let disbalanced smin smax = smaller_ell smin (smax lsr 1)
-let balanced sl sr = if sl < sr then not (disbalanced sl sr) else not (disbalanced sr sl)
+let balanced sl sr = not (disbalanced sl sr) && not (disbalanced sr sl)
 let rec bal2 : _ Balmap.Map.balmap -> bool = function
   | Leaf -> true
   | Node (_, l, _, _, r) -> balanced (Bt2.size l) (Bt2.size r) && bal2 l && bal2 r
@@ -41,12 +41,14 @@ let max_depth n = if n = 0 then 0 else 3 * (1 + int_of_float (log2 (float n))) +
 
 let inv_map name (b : int BM.t) =
   check (name ^ ": sizes") (ok2 b);
+  check (name ^ ": balance") (bal2 b);
   check (name ^ ": depth") (depth2 b <= max_depth (BM.cardinal b));
   let l = BM.bindings b in
   check (name ^ ": sorted") (List.sort_uniq (fun (a, _) (b, _) -> compare a b) l = l)
 
 let inv_set name (b : BS.t) =
   check (name ^ ": sizes") (ok1 b);
+  check (name ^ ": balance") (bal1 b);
   check (name ^ ": depth") (depth1 b <= max_depth (BS.cardinal b));
   let l = BS.elements b in
   check (name ^ ": sorted") (List.sort_uniq compare l = l)

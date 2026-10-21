@@ -66,19 +66,17 @@ let inc_right l y0 y1 r k =
   in
   rot_right l y0 y1 r k
 
-(** Balance trees leaning to the right *)
-let rec node_left l x0 x1 r =
-  if disbalanced (size l) (size r) then
-    inc_left l x0 x1 r node_left
+(** Balance a node in both directions: a rotation that fixes one side can
+    leave the other side too heavy, so the nodes it builds are balanced the
+    same way. *)
+let rec node_balance l x0 x1 r =
+  let sl = size l and sr = size r in
+  if disbalanced sl sr then
+    inc_left l x0 x1 r node_balance
+  else if disbalanced sr sl then
+    inc_right l x0 x1 r node_balance
   else
     node_ l x0 x1 r
-
-(** Balance trees leaning to the left *)
-let rec node_right l y0 y1 r =
-  if disbalanced (size r) (size l) then
-    inc_right l y0 y1 r node_right
-  else
-    node_ l y0 y1 r
 
 (** Public interface *)
 
@@ -86,10 +84,7 @@ let leaf = Leaf
 
 let node l x0 x1 r = match l, r with
   | Leaf, Leaf -> node_ leaf x0 x1 leaf
-  | l, r when size l < size r ->
-    node_left l x0 x1 r
-  | l, r ->
-    node_right l x0 x1 r
+  | l, r -> node_balance l x0 x1 r
 
 let rec join l r = match l, r with
   | Leaf, t | t, Leaf -> t
