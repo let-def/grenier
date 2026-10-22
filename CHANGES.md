@@ -30,6 +30,12 @@ Fixes:
 - hll: counters were sized with a natural log instead of log2, so the actual
   error was about twice the requested one (9.2% for 5%); the number of
   registers is now between 2^4 and 2^18 (error between 26% and 0.2%)
+- state_elimination: self-loops of eliminated states were dropped from the
+  resulting regexes
+- valmari: crashes on automata without states or transitions, or whose
+  language is empty
+- binder_introducer: when the root was part of a cycle, it was duplicated
+  (with its unshared descendants) in the body of its `let rec`
 
 Baltree: faster `node` and `join` (2.5x for `join`).
 
@@ -38,7 +44,8 @@ Balmap: faster `add`, `remove`, `union`, `subset`, `filter`, `Set.of_list` and
 `subset` (5-20% slower) (see `balmap/bench`). Like Stdlib, operations return their
 argument when the result is equal to it.
 
-Add randomized tests for balmap, congre, dbseq, fastdom and jmphash.
+Add randomized tests for balmap, binder_introducer, congre, dbseq, fastdom,
+jmphash, state_elimination and valmari.
 
 v0.16 Sat Feb  7 11:19:53 JST 2026
 --------------------------
