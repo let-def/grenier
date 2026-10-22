@@ -134,8 +134,8 @@ struct
         List.iter (fun (pred, label_pred) ->
             let label = Regex.(
                 if stars == epsilon
-                then label_pred ^. stars ^. label_succ
-                else label_pred ^. label_succ
+                then label_pred ^. label_succ
+                else label_pred ^. stars ^. label_succ
               )
             in
             link pred succ label;
