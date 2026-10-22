@@ -1,9 +1,44 @@
-unreleased
+v0.17 Thu Oct 22 09:05:40 JST 2026
 --------------------------
 
 Add a new "Maxtrie" library: immutable sets and maps over non-negative
-integers, represented as Patricia tries whose nodes hoist the maximum of their
-subtree.
+integers, represented as a very efficient flavor of Patricia tries whose
+nodes hoist the maximum of their subtree.
+- `Maxtrie.PatSet`: sets of integers, with a bitmap per node for dense sets
+- `Maxtrie.PatMap`: maps, with a `Stdlib.Map.S`-like interface and `changes`
+  to quickly list the differences between two versions of a map
+- `Maxtrie.PatMapSharing`, `PatSet.Sharing`: comparisons that make equal
+  subtrees physically shared
+- works with js_of_ocaml
+
+Physh:
+- re-enable on OCaml 5, fixing several GC-safety issues (compactions,
+  detection of minor collections, allocations from C stubs), see
+  `physh/RUNTIME_NOTES.md`
+- add `is_empty`, `add_if_new`, `remove`, `clear`, `reset`, `iter`, `fold`,
+  and for maps `find_opt`, `mem` and `add_overwrite`
+- faster hashing and noalloc fast paths
+
+Fixes:
+- balmap: `split` dropped elements, and so did the functions using it
+  (`union`, `inter`, `diff`, `merge`, `Set.map`, `filter_map`, ...);
+  `equal` returned false on maps that are equal but not physically equal
+- congre: `restore` kept the equations assumed after the snapshot when they
+  had not been propagated yet
+- baltree: `node` and `join` could build trees that break the balance
+  invariant (the depth stayed logarithmic); this also affected balmap
+- hll: counters were sized with a natural log instead of log2, so the actual
+  error was about twice the requested one (9.2% for 5%); the number of
+  registers is now between 2^4 and 2^18 (error between 26% and 0.2%)
+
+Baltree: faster `node` and `join` (2.5x for `join`).
+
+Balmap: faster `add`, `remove`, `union`, `subset`, `filter`, `Set.of_list` and
+`Set.map`, now on par with or faster than Stdlib except for `split` and
+`subset` (5-20% slower) (see `balmap/bench`). Like Stdlib, operations return their
+argument when the result is equal to it.
+
+Add randomized tests for balmap, congre, dbseq, fastdom and jmphash.
 
 v0.16 Sat Feb  7 11:19:53 JST 2026
 --------------------------
