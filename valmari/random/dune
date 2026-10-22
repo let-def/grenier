@@ -1,0 +1,8 @@
+(executable
+ (name test_random)
+ (libraries valmari))
+
+(rule
+ (alias runtest)
+ (deps test_random.exe)
+ (action (run %{deps})))

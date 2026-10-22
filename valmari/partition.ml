@@ -32,6 +32,7 @@ let create (type a) ?partition (set : a Finite.set) =
     worklist = []
   } in
   begin match partition with
+    | Some _ when n = 0 -> ()
     | None ->
       if n > 0 then (
         t.first.(0) <- 0;
@@ -116,7 +117,23 @@ let discard_unmarked t =
     done;
     t.past.(set) <- first_unmarked;
     t.marked.(set) <- 0
-  done
+  done;
+  (* Remove sets that became empty *)
+  let count = ref 0 in
+  for set = 0 to t.set_count - 1 do
+    if t.first.(set) < t.past.(set) then begin
+      let set' = !count in
+      incr count;
+      if set' < set then begin
+        t.first.(set') <- t.first.(set);
+        t.past.(set') <- t.past.(set);
+        for i = t.first.(set') to t.past.(set') - 1 do
+          t.set_of.((t.element.(i) : _ Finite.elt :> int)) <- set'
+        done
+      end
+    end
+  done;
+  t.set_count <- !count
 
 let discard t f =
   for set = 0 to t.set_count - 1 do

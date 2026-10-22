@@ -37,8 +37,9 @@ let index_transitions (type state) (type transition)
   for i = 0 to Fin.Set.cardinal states - 1 do
     f.(i + 1) <- f.(i + 1) + f.(i)
   done;
-  let a = Array.make (Fin.Set.cardinal transitions)
-      (Fin.Elt.of_int transitions 0)
+  let a = match Fin.Set.cardinal transitions with
+    | 0 -> [||]
+    | n -> Array.make n (Fin.Elt.of_int transitions 0)
   in
   Fin.Set.rev_iter transitions (fun t ->
     let state = (target t :> int) in
@@ -57,10 +58,11 @@ let discard_unreachable
     (transitions_of : state Fin.elt -> (transition Fin.elt -> unit) -> unit)
     (target : transition Fin.elt -> state Fin.elt)
   =
-  Partition.iter_marked_elements blocks 0 (fun state ->
-      transitions_of state
-        (fun transition -> Partition.mark blocks (target transition))
-    );
+  if Partition.set_count blocks > 0 then
+    Partition.iter_marked_elements blocks 0 (fun state ->
+        transitions_of state
+          (fun transition -> Partition.mark blocks (target transition))
+      );
   Partition.discard_unmarked blocks
 
 module Minimize
