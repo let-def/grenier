@@ -73,7 +73,7 @@ let explicit_sharing
       let tag = dominance t in
       let id = Fastdom.postorder_index tag in
       if id = -1 then
-        ([], t)
+        ([], bs.map_subterms traverse_child t)
       else
         match var_name.(id) with
         | Some name when not is_binding ->
@@ -81,9 +81,9 @@ let explicit_sharing
           if !(occ.cursor) < occ.min_scope then
             occ.min_scope <- !(occ.cursor);
           ([], name)
-        | _ ->
+        | name ->
           match bindings.(id) with
-          | [] -> ([], t)
+          | [] -> ([], bs.map_subterms traverse_child t)
           | bindings' ->
             bindings.(id) <- [];
             let init_occurrence (_, tag) =
@@ -93,9 +93,14 @@ let explicit_sharing
               }
             in
             List.iter init_occurrence bindings';
-            (bindings', t)
+            let is_self (_, tag') = Fastdom.postorder_index tag' = id in
+            match name with
+            | Some name when List.exists is_self bindings' ->
+              (* The root is shared (it is part of a cycle): it is bound
+                 with the others and the body just refers to it. *)
+              (bindings', name)
+            | _ -> (bindings', bs.map_subterms traverse_child t)
     in
-    let t = bs.map_subterms traverse_child t in
     match List.mapi traverse_binding bindings with
     | [] -> t
     | bindings ->
