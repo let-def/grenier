@@ -1,8 +1,11 @@
+; The tests compare against Stdlib's to_rev_seq, added in OCaml 4.13.
 (executable
  (name test)
+ (enabled_if (>= %{ocaml_version} 4.13))
  (libraries grenier.balmap grenier.baltree))
 
 (rule
  (alias runtest)
+ (enabled_if (>= %{ocaml_version} 4.13))
  (deps test.exe)
  (action (run %{deps})))

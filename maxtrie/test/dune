@@ -1,5 +1,7 @@
+; The tests compare against Stdlib's to_rev_seq, added in OCaml 4.13.
 (executables
  (names test_set test_map test_map_sharing)
+ (enabled_if (>= %{ocaml_version} 4.13))
  (modes native byte_complete)
  (libraries maxtrie))
 
@@ -20,6 +22,7 @@
 
 (rule
  (alias runtest)
+ (enabled_if (>= %{ocaml_version} 4.13))
  (action
   (progn
    (run %{exe:test_set.exe})
