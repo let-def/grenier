@@ -66,24 +66,67 @@ struct
       else
         Bt1.join l r
 
-  let rec split k = function
+  (* [split_aux found k t] is [split k t] returning a pair: [found] is set
+     when [k] is found. *)
+  let rec split_aux res k = function
+    | Leaf -> (Bt1.leaf, Bt1.leaf)
+    | Node (_, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let l', r' = split_aux res k l in
+        if r' == l then
+          (l', t)
+        else
+          (l', Bt1.node r' k' r)
+      else if c > 0 then
+        let l', r' = split_aux res k r in
+        if l' == r then
+          (t, r')
+        else
+          (Bt1.node l k' l', r')
+      else (
+        res := true;
+        (l, r)
+      )
+
+  (* [split_rec k t] is [split k t], returning a triple at each level. *)
+  let rec split_rec k = function
     | Leaf -> Bt1.leaf, false, Bt1.leaf
     | Node (_, l, k', r) as t ->
       let c = O.compare k k' in
       if c < 0 then
-        let l', found, r' = split k l in
-        if r' == l then
-          (l', found, t)
-        else
-          (l', found, Bt1.node r' k' r)
+        let l', found, r' = split_rec k l in
+        if r' == l then (l', found, t) else (l', found, Bt1.node r' k' r)
       else if c > 0 then
-        let l', found, r' = split k r in
-        if l' == r then
-          (t, found, r')
-        else
-          (Bt1.node l k' l', found, r')
+        let l', found, r' = split_rec k r in
+        if l' == r then (t, found, r') else (Bt1.node l k' l', found, r')
       else
         (l, true, r)
+
+  (* Small trees use [split_rec]. From 64 elements, [split_aux] allocates
+     less: a pair instead of a triple at each level, for the cost of the
+     reference. The root is matched here, the recursion starts from its
+     children. *)
+  let split k = function
+    | Leaf -> Bt1.leaf, false, Bt1.leaf
+    | Node (s, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c = 0 then (l, true, r)
+      else if s < 64 then
+        if c < 0 then
+          let l', found, r' = split_rec k l in
+          if r' == l then (l', found, t) else (l', found, Bt1.node r' k' r)
+        else
+          let l', found, r' = split_rec k r in
+          if l' == r then (t, found, r') else (Bt1.node l k' l', found, r')
+      else
+        let found = ref false in
+        if c < 0 then
+          let l', r' = split_aux found k l in
+          (l', !found, if r' == l then t else Bt1.node r' k' r)
+        else
+          let l', r' = split_aux found k r in
+          ((if l' == r then t else Bt1.node l k' l'), !found, r')
 
   (* [split] without the boolean, for [union]. *)
   let rec split_pair k = function
