@@ -438,14 +438,45 @@ struct
       else
         subr k1 r1 r2
 
+  (* [split_absent k t] is [split k t] without the boolean, raising
+     [Found] as soon as [k] is found instead of building the two parts.
+     The parts are only searched, so they are not rebalanced: their depth
+     is at most the one of [t]. *)
+  exception Found
+
+  (* The size of the parts is never used: leave it at 0. *)
+  let ub_node l k r = U.Node (0, l, k, r)
+
+  let rec split_absent k = function
+    | Bt1.BST.Leaf -> Bt1.BST.Leaf, Bt1.BST.Leaf
+    | Bt1.BST.Node (_, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let l', r' = split_absent k l in
+        if r' == l then
+          (l', t)
+        else
+          (l', bst_node r' k' r)
+      else if c > 0 then
+        let l', r' = split_absent k r in
+        if l' == r then
+          (t, r')
+        else
+          (bst_node l k' l', r')
+      else
+        raise_notrace Found
+
   let rec disjoint t1 t2 =
     match t1, t2 with
-    | Leaf, _ | _, Leaf -> true
-    | Node (_, l1, k1, r1), t2 ->
-      let l2, k2, r2 = split k1 t2 in
-      not k2 &&
+    | Bt1.BST.Leaf, _ | _, Bt1.BST.Leaf -> true
+    | Bt1.BST.Node (_, l1, k1, r1), t2 ->
+      t1 != t2 &&
+      let l2, r2 = split_absent k1 t2 in
       disjoint l1 l2 &&
       disjoint r1 r2
+
+  let disjoint t1 t2 =
+    try disjoint (Bt1.as_bst t1) (Bt1.as_bst t2) with Found -> false
 
   let rec diff t1 t2 =
     match t1, t2 with
