@@ -181,6 +181,20 @@ let test_set range =
   check "disjoint singleton" (BS.disjoint b (BS.singleton k) = not (SS.mem k s));
   check "subset" (BS.subset b c = SS.subset s t);
   check "subset inter" (BS.subset (BS.inter b c) b);
+  (* sets of close sizes, built with different shapes, one element apart *)
+  let close f g =
+    let b' = BS.of_list (SS.elements (f s)) and s' = f s in
+    let b'' = g b in
+    let s'' = SS.of_list (BS.elements b'') in
+    check "subset close" (BS.subset b' b'' = SS.subset s' s'');
+    check "subset close'" (BS.subset b'' b' = SS.subset s'' s')
+  in
+  let some = match SS.choose_opt s with Some x -> x | None -> k in
+  close (SS.remove some) (fun t -> t);
+  close (fun s -> SS.add (range + 1) (SS.remove some s)) (fun t -> t);
+  close (SS.remove some) (fun t -> BS.add (range + 1) (BS.add (range + 2) t));
+  close (fun s -> SS.add (range + 1) (SS.remove k s)) (fun t -> BS.add (range + 1) (BS.add (range + 2) t));
+  close (fun s -> s) (BS.remove k);
   (* small subsets of a large set: subset by lookups *)
   let few = BS.filter (fun x -> x mod 37 = 0) b in
   check "subset few" (BS.subset few b);

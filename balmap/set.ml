@@ -478,53 +478,112 @@ struct
   let of_seq seq =
     of_list (List.of_seq seq)
 
-  (* Stdlib's algorithm, without allocating: [subl l1 k1 t2] holds iff [l1]
-     and [k1] are in [t2], [subr k1 r1 t2] iff [k1] and [r1] are. Sizes are
-     compared at each step, and the narrow check (against a subtree of [t2])
-     comes first: a missing element is usually found faster there. *)
+  module U = Bt1.Unbalanced
+
+  (* [subset] mixes three algorithms, on unbalanced trees:
+     - as in Baby, [t1] is split by the root of [t2] and the sizes of the
+       parts are compared with the ones of the subtrees of [t2]: they hold
+       the same range of keys, so a missing element shows up in the sizes;
+     - when [t1] and [t2] have the same size, they are compared for
+       equality, walking both in order;
+     - Stdlib's algorithm, without allocating, when [t2] is more than twice
+       as large as [t1]: the sizes leave too much slack to be useful.
+     The parts of [t1] keep their exact size but are not rebalanced. *)
+
+  let ub_size = function U.Leaf -> 0 | U.Node (s, _, _, _) -> s
+
+  let ub_sized l k r = U.Node (ub_size l + ub_size r + 1, l, k, r)
+
+  let rec split_sized k = function
+    | U.Leaf -> U.Leaf, U.Leaf
+    | U.Node (_, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let ll, lr = split_sized k l in
+        (ll, if lr == l then t else ub_sized lr k' r)
+      else if c > 0 then
+        let rl, rr = split_sized k r in
+        ((if rl == r then t else ub_sized l k' rl), rr)
+      else
+        (l, r)
+
+  let rec ub_mem k = function
+    | U.Leaf -> false
+    | U.Node (_, l, k', r) ->
+      let c = O.compare k k' in
+      c = 0 || ub_mem k (if c < 0 then l else r)
+
+  type ub_enumeration =
+    | BEnd
+    | BMore of elt * elt U.t * ub_enumeration
+
+  let rec ub_cons_enum t e = match t with
+    | U.Leaf -> e
+    | U.Node (_, l, k, r) -> ub_cons_enum l (BMore (k, r, e))
+
+  (* [ub_equal_aux e1 e2], for enumerations of the same length. *)
+  let rec ub_equal_aux e1 e2 =
+    match e1, e2 with
+    | BMore (k1, r1, e1), BMore (k2, r2, e2) ->
+      O.compare k1 k2 = 0 &&
+      if r1 == r2 then
+        ub_equal_aux e1 e2
+      else
+        ub_equal_aux (ub_cons_enum r1 e1) (ub_cons_enum r2 e2)
+    | _ -> true
+
   let rec subset t1 t2 =
     match t1 with
-    | Leaf -> true
-    | Node (s1, l1, k1, r1) ->
+    | U.Leaf -> true
+    | U.Node (s1, l1, k1, r1) ->
       t1 == t2 ||
       match t2 with
-      | Leaf -> false
-      | Node (s2, l2, k2, r2) ->
+      | U.Leaf -> false
+      | U.Node (s2, l2, k2, r2) ->
         s1 <= s2 &&
         let c = O.compare k1 k2 in
         if c = 0 then
+          subset l1 l2 && subset r1 r2
+        else if s1 = s2 then
+          ub_equal_aux (ub_cons_enum t1 BEnd) (ub_cons_enum t2 BEnd)
+        else if s2 - s1 <= s1 then
+          let l1, r1 = split_sized k2 t1 in
+          ub_size l1 <= ub_size l2 && ub_size r1 <= ub_size r2 &&
           subset l1 l2 && subset r1 r2
         else if c < 0 then
           subl l1 k1 l2 && subset r1 t2
         else
           subr k1 r1 r2 && subset l1 t2
 
+  (* Stdlib's algorithm: [subl l1 k1 t2] holds iff [l1] and [k1] are in
+     [t2], [subr k1 r1 t2] iff [k1] and [r1] are. The narrow check (against
+     a subtree of [t2]) comes first: a missing element is usually found
+     faster there. *)
   and subl l1 k1 = function
-    | Leaf -> false
-    | Node (_, l2, k2, r2) as t2 ->
+    | U.Leaf -> false
+    | U.Node (_, l2, k2, r2) as t2 ->
       let c = O.compare k1 k2 in
       if c = 0 then
         subset l1 l2
       else if c < 0 then
         subl l1 k1 l2
       else
-        subset l1 t2 && mem k1 r2
+        subset l1 t2 && ub_mem k1 r2
 
   and subr k1 r1 = function
-    | Leaf -> false
-    | Node (_, l2, k2, r2) as t2 ->
+    | U.Leaf -> false
+    | U.Node (_, l2, k2, r2) as t2 ->
       let c = O.compare k1 k2 in
       if c = 0 then
         subset r1 r2
       else if c < 0 then
-        subset r1 t2 && mem k1 l2
+        subset r1 t2 && ub_mem k1 l2
       else
         subr k1 r1 r2
 
-  (* [split_absent k t] is [split k t] without the boolean, raising
-     [Found] as soon as [k] is found instead of building the two parts.
-     The parts are only searched, so they are not rebalanced: their depth
-     is at most the one of [t]. *)
+  let subset t1 t2 = subset (Bt1.as_unbalanced t1) (Bt1.as_unbalanced t2)
+
+  (* Raised by [disjoint] as soon as a common element is found. *)
   exception Found
 
   (* The size of the parts is never used: leave it at 0. *)
@@ -598,12 +657,6 @@ struct
           (ub_node l k' l', found, r')
       else
         (l, true, r)
-
-  let rec bst_mem k = function
-    | Bt1.BST.Leaf -> false
-    | Bt1.BST.Node (_, l, k', r) ->
-      let c = O.compare k k' in
-      c = 0 || bst_mem k (if c < 0 then l else r)
 
   (* As in Baby, a singleton on either side is a lookup or a removal. *)
   let rec diff t1 t2 =
