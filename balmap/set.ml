@@ -231,14 +231,16 @@ struct
 
   let rec partition f = function
     | Leaf -> Bt1.leaf, Bt1.leaf
-    | Node (_, l, k, r) ->
+    | Node (_, l, k, r) as t ->
       let l1, l2 = partition f l in
       let side = f k in
       let r1, r2 = partition f r in
       if side then
-        (Bt1.node l1 k r1, Bt1.join l2 r2)
+        ((if l1 == l && r1 == r then t else Bt1.node l1 k r1),
+         Bt1.join l2 r2)
       else
-        (Bt1.join l1 r1, Bt1.node l2 k r2)
+        (Bt1.join l1 r1,
+         (if l2 == l && r2 == r then t else Bt1.node l2 k r2))
 
   (* [build n l] is the balanced tree of the first [n] elements of the
      sorted list [l], and the remaining elements. *)

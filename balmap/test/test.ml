@@ -207,5 +207,21 @@ let () =
     s := BS.union !s (BS.of_list (List.init 10_000 (fun i -> base + i))); inv_set "union run" !s;
     s := BS.filter (fun x -> not (x > base && x < base + 9_000)) !s; inv_set "filter run" !s
   done;
+  (* Elements equal for [compare] but distinct: [inter] keeps the ones of
+     its first argument, whichever set is the larger. *)
+  let module TS = Balmap.Set.Make (struct
+      type t = int * int
+      let compare (a, _) (b, _) = Int.compare a b
+    end) in
+  for _ = 1 to 200 do
+    let tagged tag n = TS.of_list (List.init n (fun _ -> (Random.int 1000, tag))) in
+    let a = tagged 1 (Random.int 500) and b = tagged 2 (Random.int 500) in
+    let i = TS.inter a b in
+    check "inter keys" (List.map fst (TS.elements i) =
+                        List.filter (fun k -> TS.mem (k, 0) b) (List.map fst (TS.elements a)));
+    check "inter elements" (TS.for_all (fun x -> TS.find x a == x) i);
+    check "partition all" (fst (TS.partition (fun _ -> true) a) == a);
+    check "partition none" (snd (TS.partition (fun _ -> false) a) == a)
+  done;
   Printf.printf "balmap: %s (%d failures)\n" (if !fails = 0 then "OK" else "FAILED") !fails;
   if !fails > 0 then exit 1
