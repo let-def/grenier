@@ -70,14 +70,20 @@ struct
 
   let rec split k = function
     | Leaf -> Bt1.leaf, false, Bt1.leaf
-    | Node (_, l, k', r) ->
+    | Node (_, l, k', r) as t ->
       let c = O.compare k k' in
       if c < 0 then
         let l', found, r' = split k l in
-        l', found, Bt1.node r' k' r
+        if r' == l then
+          (l', found, t)
+        else
+          (l', found, Bt1.node r' k' r)
       else if c > 0 then
         let l', found, r' = split k r in
-        Bt1.node l k' l', found, r'
+        if l' == r then
+          (t, found, r')
+        else
+          (Bt1.node l k' l', found, r')
       else
         (l, true, r)
 
