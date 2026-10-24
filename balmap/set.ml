@@ -343,25 +343,31 @@ struct
     in
     aux t []
 
-  let rec min_elt = function
+  (* The current element is carried down: one match per level. *)
+  let rec min_elt_from k = function
+    | Leaf -> k
+    | Node (_, l, k, _) -> min_elt_from k l
+
+  let min_elt = function
     | Leaf -> raise Not_found
-    | Node (_, Leaf, k, _) -> k
-    | Node (_, l, _, _) -> min_elt l
+    | Node (_, l, k, _) -> min_elt_from k l
 
-  let rec min_elt_opt = function
+  let min_elt_opt = function
     | Leaf -> None
-    | Node (_, Leaf, k, _) -> Some k
-    | Node (_, l, _, _) -> min_elt_opt l
+    | Node (_, l, k, _) -> Some (min_elt_from k l)
 
-  let rec max_elt = function
+  (* The current element is carried down: one match per level. *)
+  let rec max_elt_from k = function
+    | Leaf -> k
+    | Node (_, _, k, r) -> max_elt_from k r
+
+  let max_elt = function
     | Leaf -> raise Not_found
-    | Node (_, _, k, Leaf) -> k
-    | Node (_, _, _, r) -> max_elt r
+    | Node (_, _, k, r) -> max_elt_from k r
 
-  let rec max_elt_opt = function
+  let max_elt_opt = function
     | Leaf -> None
-    | Node (_, _, k, Leaf) -> Some k
-    | Node (_, _, _, r) -> max_elt_opt r
+    | Node (_, _, k, r) -> Some (max_elt_from k r)
 
   let choose = min_elt
   let choose_opt = min_elt_opt

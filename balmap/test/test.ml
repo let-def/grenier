@@ -160,6 +160,8 @@ let test_set range =
   same_set "of_list sorted duplicates"
     (BS.of_list (List.concat_map (fun x -> [x; x]) (SS.elements s))) s;
   same_set "of_seq" (BS.of_seq (List.to_seq (List.rev (SS.elements s)))) s;
+  check "min_elt_opt" (BS.min_elt_opt b = SS.min_elt_opt s);
+  check "max_elt_opt" (BS.max_elt_opt b = SS.max_elt_opt s);
   for i = 0 to BS.cardinal b - 1 do
     let x = BS.rank i b in
     check "rank" (x = List.nth (SS.elements s) i);
