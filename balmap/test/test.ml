@@ -174,6 +174,7 @@ let test_set range =
   let few = BS.filter (fun x -> x mod 37 = 0) b in
   check "subset few" (BS.subset few b);
   check "subset few'" (BS.subset (BS.add (range + 1) few) b = false);
+  check "remove absent" (BS.remove (range + 1) b == b);
   check "subset few''" (BS.subset few c = SS.subset (SS.filter (fun x -> x mod 37 = 0) s) t);
   check "compare" (compare 0 (BS.compare b c) = compare 0 (match compare (SS.cardinal s) (SS.cardinal t) with 0 -> SS.compare s t | n -> n));
   check "equal self" (BS.equal b (BS.of_list (SS.elements s)));

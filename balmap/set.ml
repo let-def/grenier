@@ -54,19 +54,17 @@ struct
         t
 
   let rec remove k = function
-    | Leaf -> raise Not_found
-    | Node (_, l, k', r) ->
+    | Leaf -> Bt1.leaf
+    | Node (_, l, k', r) as t ->
       let c = O.compare k k' in
       if c < 0 then
-        Bt1.node (remove k l) k' r
+        let l' = remove k l in
+        if l' == l then t else Bt1.node l' k' r
       else if c > 0 then
-        Bt1.node l k' (remove k r)
+        let r' = remove k r in
+        if r' == r then t else Bt1.node l k' r'
       else
         Bt1.join l r
-
-  let remove k t =
-    try remove k t
-    with Not_found -> t
 
   let rec split k = function
     | Leaf -> Bt1.leaf, false, Bt1.leaf
