@@ -170,6 +170,8 @@ let test_set range =
   let l2 = List.init (Random.int 300) (fun _ -> rand_key range) in
   let c = BS.of_list l2 and t = SS.of_list l2 in
   same_set "union" (BS.union b c) (SS.union s t);
+  let sub = BS.filter (fun x -> x land 1 = 0) b in
+  check "union subset" (BS.union sub b == b && BS.union b sub == b);
   same_set "inter" (BS.inter b c) (SS.inter s t);
   same_set "diff" (BS.diff b c) (SS.diff s t);
   same_set "diff singleton" (BS.diff b (BS.singleton k)) (SS.diff s (SS.singleton k));

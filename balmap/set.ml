@@ -142,23 +142,24 @@ struct
       else
         (l, r)
 
-  (* The smaller set is split by the root of the larger one. *)
+  (* [union t1 t2] splits [t1] by the roots of [t2]: when [t1] is smaller,
+     the structure of [t2] is kept and shared where nothing changes. *)
   let rec union t1 t2 =
     match t1, t2 with
     | Leaf, t | t, Leaf -> t
-    | Node (s1, l1, k1, r1), Node (s2, l2, k2, r2) ->
-      if s1 >= s2 then
-        if s2 = 1 then add k2 t1 else
-          let l2, r2 = split_pair k1 t2 in
-          let l = union l1 l2 in
-          let r = union r1 r2 in
-          if l == l1 && r == r1 then t1 else Bt1.node l k1 r
-      else
-        if s1 = 1 then add k1 t2 else
-          let l1, r1 = split_pair k2 t1 in
-          let l = union l1 l2 in
-          let r = union r1 r2 in
-          if l == l2 && r == r2 then t2 else Bt1.node l k2 r
+    | Node (s1, _, k1, _), Node (s2, l2, k2, r2) ->
+      if s1 = 1 then add k1 t2 else
+      if s2 = 1 then add k2 t1 else
+        let l1, r1 = split_pair k2 t1 in
+        let l = union l1 l2 in
+        let r = union r1 r2 in
+        if l == l2 && r == r2 then t2 else Bt1.node l k2 r
+
+  (* As in Baby, the side to split is chosen once: the smaller set. *)
+  let union t1 t2 =
+    if t1 == t2 then t1
+    else if Bt1.size t1 <= Bt1.size t2 then union t1 t2
+    else union t2 t1
 
   let union3 l k r =
     union (add k l) r
