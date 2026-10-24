@@ -389,28 +389,48 @@ struct
   let of_seq seq =
     add_seq seq empty
 
-  (* [sub l1 k1 r1 t2] holds iff [l1], [k1] and [r1] are in [t2]. This is
-     Stdlib's algorithm, without allocating: the node of [l1], [k1] and an
-     empty tree (or of an empty tree, [k1] and [r1]) is passed in pieces. *)
-  let rec sub l1 k1 r1 t2 =
-    match t2 with
-    | Leaf -> false
-    | Node (_, l2, k2, r2) ->
-      let c = O.compare k1 k2 in
-      if c = 0 then
-        subset_ l1 l2 && subset_ r1 r2
-      else if c < 0 then
-        sub l1 k1 Bt1.leaf l2 && subset_ r1 t2
-      else
-        sub Bt1.leaf k1 r1 r2 && subset_ l1 t2
-
-  and subset_ t1 t2 =
+  (* Stdlib's algorithm, without allocating: [subl l1 k1 t2] holds iff [l1]
+     and [k1] are in [t2], [subr k1 r1 t2] iff [k1] and [r1] are. Sizes are
+     compared at each step, and the narrow check (against a subtree of [t2])
+     comes first: a missing element is usually found faster there. *)
+  let rec subset t1 t2 =
     match t1 with
     | Leaf -> true
-    | Node (_, l1, k1, r1) -> t1 == t2 || sub l1 k1 r1 t2
+    | Node (s1, l1, k1, r1) ->
+      t1 == t2 ||
+      match t2 with
+      | Leaf -> false
+      | Node (s2, l2, k2, r2) ->
+        s1 <= s2 &&
+        let c = O.compare k1 k2 in
+        if c = 0 then
+          subset l1 l2 && subset r1 r2
+        else if c < 0 then
+          subl l1 k1 l2 && subset r1 t2
+        else
+          subr k1 r1 r2 && subset l1 t2
 
-  let subset t1 t2 =
-    cardinal t1 <= cardinal t2 && subset_ t1 t2
+  and subl l1 k1 = function
+    | Leaf -> false
+    | Node (_, l2, k2, r2) as t2 ->
+      let c = O.compare k1 k2 in
+      if c = 0 then
+        subset l1 l2
+      else if c < 0 then
+        subl l1 k1 l2
+      else
+        subset l1 t2 && mem k1 r2
+
+  and subr k1 r1 = function
+    | Leaf -> false
+    | Node (_, l2, k2, r2) as t2 ->
+      let c = O.compare k1 k2 in
+      if c = 0 then
+        subset r1 r2
+      else if c < 0 then
+        subset r1 t2 && mem k1 l2
+      else
+        subr k1 r1 r2
 
   let rec disjoint t1 t2 =
     match t1, t2 with
