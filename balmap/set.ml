@@ -475,7 +475,9 @@ struct
       disjoint l1 l2 &&
       disjoint r1 r2
 
+  (* The smaller set is decomposed, the larger one is split by its keys. *)
   let disjoint t1 t2 =
+    let t1, t2 = if Bt1.size t1 <= Bt1.size t2 then t1, t2 else t2, t1 in
     try disjoint (Bt1.as_bst t1) (Bt1.as_bst t2) with Found -> false
 
   let rec diff t1 t2 =
