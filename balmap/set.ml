@@ -535,7 +535,48 @@ struct
 
   let diff t1 t2 = diff t1 (Bt1.as_unbalanced t2)
 
-  let inter t1 t2 = inter t1 (Bt1.as_bst t2)
+  (* [split_node k t] is [split_ub k t], returning the node of [t] holding
+     [k] (or a leaf) instead of a boolean. *)
+  let rec split_node k = function
+    | U.Leaf -> U.Leaf, U.Leaf, U.Leaf
+    | U.Node (_, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let l', n, r' = split_node k l in
+        if r' == l then
+          (l', n, t)
+        else
+          (l', n, ub_node r' k' r)
+      else if c > 0 then
+        let l', n, r' = split_node k r in
+        if l' == r then
+          (t, n, r')
+        else
+          (ub_node l k' l', n, r')
+      else
+        (l, t, r)
+
+  (* [inter_rev t2 t1] is [inter t1 t2], decomposing [t2]: the elements are
+     still taken from [t1]. *)
+  let rec inter_rev t2 t1 =
+    match t2, t1 with
+    | Leaf, _ | _, U.Leaf -> empty
+    | (Node (_, l2, k2, r2) as t2), t1 ->
+      let l1, n, r1 = split_node k2 t1 in
+      let l = inter_rev l2 l1 in
+      let r = inter_rev r2 r1 in
+      match n with
+      | U.Leaf -> Bt1.join l r
+      | U.Node (_, _, k1, _) ->
+        if k1 == k2 && l == l2 && r == r2 then t2 else Bt1.node l k1 r
+
+  (* The smaller set is decomposed. When [t1] is the larger one, the result
+     cannot be [t1] itself. *)
+  let inter t1 t2 =
+    if Bt1.size t1 <= Bt1.size t2 then
+      inter t1 (Bt1.as_unbalanced t2)
+    else
+      inter_rev t2 (Bt1.as_unbalanced t1)
 
   let to_list = elements
 
