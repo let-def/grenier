@@ -147,36 +147,38 @@ struct
     if t1 == t2 then 0 else
       match Int.compare (cardinal t1) (cardinal t2) with
       | 0 ->
-        let rec compare_aux = function
-          | (End, End) -> 0
-          | (End, _  ) | (_  , End) -> assert false
-          | (More (k1, r1, e1), More (k2, r2, e2)) ->
+        let rec compare_aux e1 e2 =
+          match e1, e2 with
+          | End, End -> 0
+          | End, _ | _, End -> assert false
+          | More (k1, r1, e1), More (k2, r2, e2) ->
             match O.compare k1 k2 with
             | 0 ->
               if r1 == r2 then
-                compare_aux (e1, e2)
+                compare_aux e1 e2
               else
-                compare_aux (cons_enum r1 e1, cons_enum r2 e2)
+                compare_aux (cons_enum r1 e1) (cons_enum r2 e2)
             | n -> n
         in
-        compare_aux (cons_enum t1 End, cons_enum t2 End)
+        compare_aux (cons_enum t1 End) (cons_enum t2 End)
       | n -> n
 
   let equal t1 t2 =
     t1 == t2 || Int.equal (cardinal t1) (cardinal t2) &&
-    let rec equal_aux = function
-      | (End, End) -> true
-      | (End, _  ) | (_  , End) -> assert false
-      | (More (k1, r1, e1), More (k2, r2, e2)) ->
+    let rec equal_aux e1 e2 =
+      match e1, e2 with
+      | End, End -> true
+      | End, _ | _, End -> assert false
+      | More (k1, r1, e1), More (k2, r2, e2) ->
         match O.compare k1 k2 with
         | 0 ->
           if r1 == r2 then
-            equal_aux (e1, e2)
+            equal_aux e1 e2
           else
-            equal_aux (cons_enum r1 e1, cons_enum r2 e2)
+            equal_aux (cons_enum r1 e1) (cons_enum r2 e2)
         | _ -> false
     in
-    equal_aux (cons_enum t1 End, cons_enum t2 End)
+    equal_aux (cons_enum t1 End) (cons_enum t2 End)
 
   let rec iter f = function
     | Leaf -> ()
