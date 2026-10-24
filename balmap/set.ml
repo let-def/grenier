@@ -480,12 +480,34 @@ struct
     let t1, t2 = if Bt1.size t1 <= Bt1.size t2 then t1, t2 else t2, t1 in
     try disjoint (Bt1.as_bst t1) (Bt1.as_bst t2) with Found -> false
 
+  (* [split_ub k t] is [split k t] on an unbalanced tree. [diff]
+     and [inter] build their result from the subtrees of [t1], the parts of
+     [t2] are only searched: they are not rebalanced. *)
+  let rec split_ub k = function
+    | U.Leaf -> U.Leaf, false, U.Leaf
+    | U.Node (_, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let l', found, r' = split_ub k l in
+        if r' == l then
+          (l', found, t)
+        else
+          (l', found, ub_node r' k' r)
+      else if c > 0 then
+        let l', found, r' = split_ub k r in
+        if l' == r then
+          (t, found, r')
+        else
+          (ub_node l k' l', found, r')
+      else
+        (l, true, r)
+
   let rec diff t1 t2 =
     match t1, t2 with
     | Leaf, _ -> Bt1.leaf
-    | t1, Leaf -> t1
+    | t1, Bt1.BST.Leaf -> t1
     | Node (_, l1, k, r1), t2 ->
-      let l2, drop, r2 = split k t2 in
+      let l2, drop, r2 = split_ub k t2 in
       let l = diff l1 l2 in
       let r = diff r1 r2 in
       if drop then
@@ -497,9 +519,9 @@ struct
 
   let rec inter t1 t2 =
     match t1, t2 with
-    | Leaf, _ | _, Leaf -> empty
+    | Leaf, _ | _, U.Leaf -> empty
     | Node (_, l1, k1, r1), t2 ->
-      let l2, keep, r2 = split k1 t2 in
+      let l2, keep, r2 = split_ub k1 t2 in
       let l = inter l1 l2 in
       let r = inter r1 r2 in
       if not keep then
@@ -508,6 +530,10 @@ struct
         t1
       else
         Bt1.node l k1 r
+
+  let diff t1 t2 = diff t1 (Bt1.as_unbalanced t2)
+
+  let inter t1 t2 = inter t1 (Bt1.as_bst t2)
 
   let to_list = elements
 
