@@ -299,24 +299,41 @@ struct
         (Bt1.join l1 r1,
          (if l2 == l && r2 == r then t else Bt1.node l2 k r2))
 
-  (* [build n l] is the balanced tree of the first [n] elements of the
-     sorted list [l], and the remaining elements. *)
-  let rec build n l =
-    if n = 0 then Bt1.leaf, l else
-      let nl = (n - 1) / 2 in
-      let left, l = build nl l in
-      match l with
-      | [] -> assert false
-      | k :: l ->
-        let right, l = build (n - 1 - nl) l in
-        Bt1.node left k right, l
+  (* [of_sorted_array a i j] is the balanced tree of [a.(i)], ...,
+     [a.(j - 1)], in increasing order. *)
+  let rec of_sorted_array a i j =
+    if i >= j then Bt1.leaf else
+      let m = i + (j - i) / 2 in
+      Bt1.node (of_sorted_array a i m) a.(m) (of_sorted_array a (m + 1) j)
 
+  (* [sortedness dup l] is [0] if [l] is not sorted, [1] if it is strictly
+     increasing, [2] if it is sorted with duplicates (or [dup] is true). *)
+  let rec sortedness dup = function
+    | k :: (k' :: _ as l) ->
+      let c = O.compare k k' in
+      if c < 0 then sortedness dup l
+      else if c = 0 then sortedness true l
+      else 0
+    | [] | [_] -> if dup then 2 else 1
+
+  (* A sorted list is built in linear time, as in Baby. *)
   let of_list = function
     | [] -> empty
     | [k] -> singleton k
-    | l ->
-      let l = List.sort_uniq O.compare l in
-      fst (build (List.length l) l)
+    | k :: _ as l ->
+      match sortedness false l with
+      | 1 ->
+        let a = Array.of_list l in
+        of_sorted_array a 0 (Array.length a)
+      | 2 ->
+        let a = Array.make (List.length l) k in
+        let n = List.fold_left (fun n k ->
+            if O.compare a.(n - 1) k = 0 then n else (a.(n) <- k; n + 1)) 1 l
+        in
+        of_sorted_array a 0 n
+      | _ ->
+        let a = Array.of_list (List.sort_uniq O.compare l) in
+        of_sorted_array a 0 (Array.length a)
 
   let elements t =
     let rec aux t acc = match t with
@@ -452,7 +469,7 @@ struct
     Seq.fold_left (fun t k -> add k t) t seq
 
   let of_seq seq =
-    add_seq seq empty
+    of_list (List.of_seq seq)
 
   (* Stdlib's algorithm, without allocating: [subl l1 k1 t2] holds iff [l1]
      and [k1] are in [t2], [subr k1 r1 t2] iff [k1] and [r1] are. Sizes are

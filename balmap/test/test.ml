@@ -157,6 +157,9 @@ let test_set range =
   check "to_rev_seq" (List.of_seq (BS.to_rev_seq b) = List.of_seq (SS.to_rev_seq s));
   same_set "of_list" (BS.of_list (SS.elements s)) s;
   same_set "of_list shuffled" (BS.of_list (List.rev (SS.elements s) @ SS.elements s)) s;
+  same_set "of_list sorted duplicates"
+    (BS.of_list (List.concat_map (fun x -> [x; x]) (SS.elements s))) s;
+  same_set "of_seq" (BS.of_seq (List.to_seq (List.rev (SS.elements s)))) s;
   for i = 0 to BS.cardinal b - 1 do
     let x = BS.rank i b in
     check "rank" (x = List.nth (SS.elements s) i);
