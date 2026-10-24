@@ -529,38 +529,52 @@ struct
   (* The size of the parts is never used: leave it at 0. *)
   let ub_node l k r = U.Node (0, l, k, r)
 
-  let rec split_absent k = function
-    | Bt1.BST.Leaf -> Bt1.BST.Leaf, Bt1.BST.Leaf
-    | Bt1.BST.Node (_, l, k', r) as t ->
+  (* Leapfrog (Veldhuizen), as in Baby: walk both sets in increasing order;
+     the front of one enumeration is used to skip ahead in the other. *)
+
+  (* [skip_tree k t e] is the enumeration of the elements of [t] greater
+     than [k], followed by [e]. Raises [Found] if [k] is in [t]. *)
+  let rec skip_tree k t e = match t with
+    | Leaf -> e
+    | Node (_, l, k', r) ->
+      let c = O.compare k' k in
+      if c = 0 then raise_notrace Found
+      else if c < 0 then skip_tree k r e
+      else skip_tree k l (More (k', r, e))
+
+  (* [skip_enum k r e] is [skip_tree k r e], [e] being skipped too. *)
+  let rec skip_enum k r e = match e with
+    | More (k', r', e') ->
       let c = O.compare k k' in
-      if c < 0 then
-        let l', r' = split_absent k l in
-        if r' == l then
-          (l', t)
-        else
-          (l', bst_node r' k' r)
-      else if c > 0 then
-        let l', r' = split_absent k r in
-        if l' == r then
-          (t, r')
-        else
-          (bst_node l k' l', r')
-      else
-        raise_notrace Found
+      if c > 0 then skip_enum k r' e'
+      else if c = 0 then raise_notrace Found
+      else skip_tree k r e
+    | End -> skip_tree k r e
 
-  let rec disjoint t1 t2 =
-    match t1, t2 with
-    | Bt1.BST.Leaf, _ | _, Bt1.BST.Leaf -> true
-    | Bt1.BST.Node (_, l1, k1, r1), t2 ->
+  (* [leap r1 e1 k2 r2 e2]: the enumerations are [More (k1, r1, e1)] and
+     [More (k2, r2, e2)] with [k1 < k2]; [k1] is no longer needed. *)
+  let rec leap r1 e1 k2 r2 e2 =
+    match skip_enum k2 r1 e1 with
+    | End -> true
+    | More (k1, r1, e1) -> leap r2 e2 k1 r1 e1
+
+  let disjoint_enum t1 t2 =
+    match cons_enum t1 End, cons_enum t2 End with
+    | End, _ | _, End -> true
+    | More (k1, r1, e1), More (k2, r2, e2) ->
+      let c = O.compare k1 k2 in
+      c <> 0 &&
+      (try if c < 0 then leap r1 e1 k2 r2 e2 else leap r2 e2 k1 r1 e1
+       with Found -> false)
+
+  (* The root of the smaller set is looked up in the larger one first,
+     which does not allocate; then both sets are walked in order. *)
+  let disjoint t1 t2 = match t1, t2 with
+    | Leaf, _ | _, Leaf -> true
+    | Node (s1, _, k1, _), Node (s2, _, k2, _) ->
       t1 != t2 &&
-      let l2, r2 = split_absent k1 t2 in
-      disjoint l1 l2 &&
-      disjoint r1 r2
-
-  (* The smaller set is decomposed, the larger one is split by its keys. *)
-  let disjoint t1 t2 =
-    let t1, t2 = if Bt1.size t1 <= Bt1.size t2 then t1, t2 else t2, t1 in
-    try disjoint (Bt1.as_bst t1) (Bt1.as_bst t2) with Found -> false
+      not (if s1 <= s2 then mem k1 t2 else mem k2 t1) &&
+      disjoint_enum t1 t2
 
   (* [split_ub k t] is [split k t] on an unbalanced tree. [diff]
      and [inter] build their result from the subtrees of [t1], the parts of

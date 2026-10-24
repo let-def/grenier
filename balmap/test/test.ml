@@ -175,6 +175,8 @@ let test_set range =
   same_set "diff singleton" (BS.diff b (BS.singleton k)) (SS.diff s (SS.singleton k));
   same_set "singleton diff" (BS.diff (BS.singleton k) b) (SS.diff (SS.singleton k) s);
   check "disjoint" (BS.disjoint b c = SS.disjoint s t);
+  check "disjoint diff" (BS.disjoint (BS.diff b c) c && BS.disjoint c (BS.diff b c));
+  check "disjoint singleton" (BS.disjoint b (BS.singleton k) = not (SS.mem k s));
   check "subset" (BS.subset b c = SS.subset s t);
   check "subset inter" (BS.subset (BS.inter b c) b);
   (* small subsets of a large set: subset by lookups *)
