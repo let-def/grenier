@@ -1,6 +1,14 @@
-type 'a t =
+module Unbalanced = struct
+  type 'a t =
+    | Leaf
+    | Node of int * 'a t * 'a * 'a t
+end
+
+type 'a t = 'a Unbalanced.t =
   | Leaf
   | Node of int * 'a t * 'a * 'a t
+
+let as_unbalanced t = t
 
 let size = function
   | Node (s, _, _, _) -> s

@@ -1,3 +1,16 @@
+(** {1 Unbalanced trees} *)
+
+(** Trees with the same representation as balanced trees, but no balance
+    invariant: they can be built freely, for intermediate results whose
+    depth does not matter. *)
+module Unbalanced : sig
+  type +'a t =
+    | Leaf
+    | Node of int * 'a t * 'a * 'a t
+    (** [Node(size, l, x, r)]: [size] is meaningful only for trees obtained
+        with {!as_unbalanced}, it is up to the user otherwise. *)
+end
+
 (** {1 Type of balanced trees with one custom value} *)
 type +'a t = private
   | Leaf
@@ -11,6 +24,9 @@ type +'a t = private
       Trees are guaranteed balanced by construction, the depth of all branches
       is O(log [size]).
   *)
+
+(** Forget that a tree is balanced, without allocating. *)
+val as_unbalanced : 'a t -> 'a Unbalanced.t
 
 (** Leaf constructor, the empty tree *)
 val leaf : 'a t
