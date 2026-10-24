@@ -85,6 +85,20 @@ struct
       else
         (l, true, r)
 
+  (* [split] without the boolean, for [union]. *)
+  let rec split_pair k = function
+    | Leaf -> Bt1.leaf, Bt1.leaf
+    | Node (_, l, k', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let l', r' = split_pair k l in
+        if r' == l then (l', t) else (l', Bt1.node r' k' r)
+      else if c > 0 then
+        let l', r' = split_pair k r in
+        if l' == r then (t, r') else (Bt1.node l k' l', r')
+      else
+        (l, r)
+
   (* The smaller set is split by the root of the larger one. *)
   let rec union t1 t2 =
     match t1, t2 with
@@ -92,13 +106,13 @@ struct
     | Node (s1, l1, k1, r1), Node (s2, l2, k2, r2) ->
       if s1 >= s2 then
         if s2 = 1 then add k2 t1 else
-          let l2, _, r2 = split k1 t2 in
+          let l2, r2 = split_pair k1 t2 in
           let l = union l1 l2 in
           let r = union r1 r2 in
           if l == l1 && r == r1 then t1 else Bt1.node l k1 r
       else
         if s1 = 1 then add k1 t2 else
-          let l1, _, r1 = split k2 t1 in
+          let l1, r1 = split_pair k2 t1 in
           let l = union l1 l2 in
           let r = union r1 r2 in
           if l == l2 && r == r2 then t2 else Bt1.node l k2 r
