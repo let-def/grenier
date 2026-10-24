@@ -584,10 +584,19 @@ struct
       else
         (l, true, r)
 
+  let rec bst_mem k = function
+    | Bt1.BST.Leaf -> false
+    | Bt1.BST.Node (_, l, k', r) ->
+      let c = O.compare k k' in
+      c = 0 || bst_mem k (if c < 0 then l else r)
+
+  (* As in Baby, a singleton on either side is a lookup or a removal. *)
   let rec diff t1 t2 =
     match t1, t2 with
     | Leaf, _ -> Bt1.leaf
-    | t1, Bt1.BST.Leaf -> t1
+    | t1, U.Leaf -> t1
+    | Node (_, Leaf, k, Leaf), t2 -> if ub_mem k t2 then Bt1.leaf else t1
+    | t1, U.Node (_, U.Leaf, k, U.Leaf) -> remove k t1
     | Node (_, l1, k, r1), t2 ->
       let l2, drop, r2 = split_ub k t2 in
       let l = diff l1 l2 in

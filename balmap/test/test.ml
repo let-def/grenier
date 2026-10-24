@@ -172,6 +172,8 @@ let test_set range =
   same_set "union" (BS.union b c) (SS.union s t);
   same_set "inter" (BS.inter b c) (SS.inter s t);
   same_set "diff" (BS.diff b c) (SS.diff s t);
+  same_set "diff singleton" (BS.diff b (BS.singleton k)) (SS.diff s (SS.singleton k));
+  same_set "singleton diff" (BS.diff (BS.singleton k) b) (SS.diff (SS.singleton k) s);
   check "disjoint" (BS.disjoint b c = SS.disjoint s t);
   check "subset" (BS.subset b c = SS.subset s t);
   check "subset inter" (BS.subset (BS.inter b c) b);
