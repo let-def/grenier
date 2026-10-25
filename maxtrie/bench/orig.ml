@@ -1,4 +1,16 @@
-module Bit_lib = Maxtrie__Bit_lib
+(* The primitives of Maxtrie's private Bit_lib that this module uses; the C
+   stubs are linked with the maxtrie library. *)
+module Bit_lib = struct
+  external pop_count : (int [@untagged]) -> (int [@untagged]) =
+    "maxtrie_pop_count_tagged" "maxtrie_pop_count" [@@noalloc]
+  external msb_index : (int [@untagged]) -> (int [@untagged]) =
+    "maxtrie_msb_index_tagged" "maxtrie_msb_index" [@@noalloc]
+  external lsb_index : (int [@untagged]) -> (int [@untagged]) =
+    "maxtrie_lsb_index_tagged" "maxtrie_lsb_index" [@@noalloc]
+  external extract_msb : (int [@untagged]) -> (int [@untagged]) =
+    "maxtrie_extract_msb_tagged" "maxtrie_extract_msb" [@@noalloc]
+  let[@inline] extract_lsb x = x land (-x)
+end
 [@@@warning "-a"]
 type t = {
   k: int;

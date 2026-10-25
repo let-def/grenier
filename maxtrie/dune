@@ -1,6 +1,7 @@
 (library
  (name maxtrie)
  (public_name grenier.maxtrie)
+ (private_modules bit_lib)
  (foreign_stubs (language c) (names bit_stubs) (flags (:standard -O2)))
  (js_of_ocaml (javascript_files bit_stubs.js)))
 
