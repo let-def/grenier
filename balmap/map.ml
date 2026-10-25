@@ -125,33 +125,46 @@ struct
       let r' = merge f r1 r2 in
       maybe_node l' k2 v' r'
 
-  (* The smaller map is split by the root of the larger one. *)
+  (* [union_one k v g t] binds [k] to [v] in [t] if it is unbound, and
+     to [g v'] if it is bound to [v']. *)
+  let rec union_one k v g = function
+    | Leaf -> singleton k v
+    | Node (_, l, k', v', r) as t ->
+      let c = O.compare k k' in
+      if c < 0 then
+        let l' = union_one k v g l in
+        if l' == l then t else Bt2.node l' k' v' r
+      else if c > 0 then
+        let r' = union_one k v g r in
+        if r' == r then t else Bt2.node l k' v' r'
+      else
+        match g v' with
+        | None -> Bt2.join l r
+        | Some v -> if v == v' then t else Bt2.node l k' v r
+
+  (* [union f t1 t2] splits [t1] by the roots of [t2]: when [t1] is smaller,
+     the structure of [t2] is kept and shared where nothing changes. *)
   let rec union f t1 t2 =
     match t1, t2 with
     | Leaf, t | t, Leaf -> t
-    | Node (s1, l1, k1, v1, r1), Node (s2, l2, k2, v2, r2) ->
-      if s1 >= s2 then
-        let l2, v2, r2 = split k1 t2 in
-        let l' = union f l1 l2 in
-        match v2 with
-        | None ->
-          let r' = union f r1 r2 in
-          if l' == l1 && r' == r1 then t1 else Bt2.node l' k1 v1 r'
-        | Some v2 ->
-          let v' = f k1 v1 v2 in
-          let r' = union f r1 r2 in
-          maybe_node l' k1 v' r'
-      else
+    | Node (s1, _, k1, v1, _), Node (s2, l2, k2, v2, r2) ->
+      if s1 = 1 then union_one k1 v1 (fun v2 -> f k1 v1 v2) t2 else
+      if s2 = 1 then union_one k2 v2 (fun v1 -> f k2 v1 v2) t1 else
         let l1, v1, r1 = split k2 t1 in
-        let l' = union f l1 l2 in
+        let l = union f l1 l2 in
+        let r = union f r1 r2 in
         match v1 with
-        | None ->
-          let r' = union f r1 r2 in
-          if l' == l2 && r' == r2 then t2 else Bt2.node l' k2 v2 r'
+        | None -> if l == l2 && r == r2 then t2 else Bt2.node l k2 v2 r
         | Some v1 ->
-          let v' = f k2 v1 v2 in
-          let r' = union f r1 r2 in
-          maybe_node l' k2 v' r'
+          match f k2 v1 v2 with
+          | None -> Bt2.join l r
+          | Some v ->
+            if v == v2 && l == l2 && r == r2 then t2 else Bt2.node l k2 v r
+
+  (* As in Baby, the side to split is chosen once: the smaller map. *)
+  let union f t1 t2 =
+    if Bt2.size t1 <= Bt2.size t2 then union f t1 t2
+    else union (fun k v2 v1 -> f k v1 v2) t2 t1
 
   let cardinal = Bt2.size
 
@@ -261,25 +274,31 @@ struct
     in
     aux t []
 
-  let rec min_binding = function
+  (* The current binding is carried down: one match per level. *)
+  let rec min_binding_from k v = function
+    | Leaf -> (k, v)
+    | Node (_, l, k, v, _) -> min_binding_from k v l
+
+  let min_binding = function
     | Leaf -> raise Not_found
-    | Node (_, Leaf, k, v, _) -> (k, v)
-    | Node (_, l, _, _, _) -> min_binding l
+    | Node (_, l, k, v, _) -> min_binding_from k v l
 
-  let rec min_binding_opt = function
+  let min_binding_opt = function
     | Leaf -> None
-    | Node (_, Leaf, k, v, _) -> Some (k, v)
-    | Node (_, l, _, _, _) -> min_binding_opt l
+    | Node (_, l, k, v, _) -> Some (min_binding_from k v l)
 
-  let rec max_binding = function
+  (* The current binding is carried down: one match per level. *)
+  let rec max_binding_from k v = function
+    | Leaf -> (k, v)
+    | Node (_, _, k, v, r) -> max_binding_from k v r
+
+  let max_binding = function
     | Leaf -> raise Not_found
-    | Node (_, _, k, v, Leaf) -> (k, v)
-    | Node (_, _, _, _, r) -> max_binding r
+    | Node (_, _, k, v, r) -> max_binding_from k v r
 
-  let rec max_binding_opt = function
+  let max_binding_opt = function
     | Leaf -> None
-    | Node (_, _, k, v, Leaf) -> Some (k, v)
-    | Node (_, _, _, _, r) -> max_binding_opt r
+    | Node (_, _, k, v, r) -> Some (max_binding_from k v r)
 
   let choose = min_binding
   let choose_opt = min_binding_opt
@@ -394,8 +413,50 @@ struct
   let add_seq seq t =
     Seq.fold_left (fun t (k, v) -> add k v t) t seq
 
+  (* [of_sorted_array a i j] is the balanced map of the bindings [a.(i)],
+     ..., [a.(j - 1)], in increasing order of keys. *)
+  let rec of_sorted_array a i j =
+    if i >= j then Bt2.leaf else
+      let m = i + (j - i) / 2 in
+      let k, v = a.(m) in
+      Bt2.node (of_sorted_array a i m) k v (of_sorted_array a (m + 1) j)
+
+  (* [sortedness dup l] is [0] if the keys of [l] are not sorted, [1] if
+     they are strictly increasing, [2] if they are sorted with duplicates
+     (or [dup] is true). *)
+  let rec sortedness dup = function
+    | (k, _) :: ((k', _) :: _ as l) ->
+      let c = O.compare k k' in
+      if c < 0 then sortedness dup l
+      else if c = 0 then sortedness true l
+      else 0
+    | [] | [_] -> if dup then 2 else 1
+
+  (* A sorted list is built in linear time, as in Baby. Other lists are
+     sorted first, with a stable sort: as with repeated [add], the last
+     binding of a key wins. *)
+  let of_list = function
+    | [] -> empty
+    | [k, v] -> singleton k v
+    | l ->
+      match sortedness false l with
+      | 1 ->
+        let a = Array.of_list l in
+        of_sorted_array a 0 (Array.length a)
+      | s ->
+        let l =
+          if s = 2 then l
+          else List.stable_sort (fun (k, _) (k', _) -> O.compare k k') l
+        in
+        let a = Array.make (List.length l) (List.hd l) in
+        let n = List.fold_left (fun n (k, _ as b) ->
+            if O.compare (fst a.(n - 1)) k = 0 then (a.(n - 1) <- b; n)
+            else (a.(n) <- b; n + 1)) 1 l
+        in
+        of_sorted_array a 0 n
+
   let of_seq seq =
-    add_seq seq empty
+    of_list (List.of_seq seq)
 
   let rec add_to_list k v = function
     | Leaf -> singleton k [v]
@@ -409,7 +470,6 @@ struct
         Bt2.node l k (v :: v') r
 
   let to_list = bindings
-  let of_list bs = List.fold_left (fun m (k, v) -> add k v m) empty bs
 
   let of_bt2 t =
     let rec validate k = function

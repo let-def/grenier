@@ -122,6 +122,15 @@ let test_map range =
   same_map "merge" (BM.merge mf b c) (SM.merge mf s t);
   let uf _ a b = if a = b then None else Some (2 * a + b) in
   same_map "union" (BM.union uf b c) (SM.union uf s t);
+  same_map "union'" (BM.union uf c b) (SM.union uf t s);
+  let sub = BM.filter (fun k _ -> k land 3 = 0) b in
+  check "union subset" (BM.union (fun _ _ v -> Some v) sub b == b
+                        && BM.union (fun _ v _ -> Some v) b sub == b);
+  (* [pairs] has duplicate keys: the last binding wins, as with [add]. *)
+  same_map "of_list duplicates" (BM.of_list pairs) t;
+  same_map "of_seq" (BM.of_seq (List.to_seq pairs)) t;
+  let sorted = List.stable_sort (fun (k, _) (k', _) -> compare k k') pairs in
+  same_map "of_list sorted duplicates" (BM.of_list sorted) t;
   check "compare" (compare 0 (BM.compare compare b c) = compare 0 (match compare (SM.cardinal s) (SM.cardinal t) with 0 -> SM.compare compare s t | n -> n));
   check "compare self" (BM.compare compare b bcopy = 0);
   check "equal" (BM.equal (=) b c = SM.equal (=) s t);
