@@ -1,3 +1,13 @@
 (executable
  (name bench)
+ (modules bench)
  (libraries grenier.balmap unix))
+
+; Balmap vs Stdlib, and Baby when it is installed (opam install baby).
+(executable
+ (name compare)
+ (modules compare sigs baby_impl)
+ (libraries grenier.balmap unix
+  (select baby_impl.ml from
+   (baby -> baby_impl.baby.ml)
+   (-> baby_impl.none.ml))))
