@@ -149,7 +149,12 @@ let rec link_aux sl l x sr r =
   else
     node_ sl l x sr r
 
-let link l x r = link_aux (size l) l x (size r) r
+let link l x r =
+  let sl = size l and sr = size r in
+  if sr <= 2 * sl + 1 && sl <= 2 * sr + 1 then
+    node_ sl l x sr r
+  else
+    link_aux sl l x sr r
 
 (** Remove the last element, returned with the remaining tree. *)
 let rec pop_max = function

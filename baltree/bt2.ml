@@ -2,7 +2,7 @@ type (+'a, +'b) t =
   | Leaf
   | Node of int * ('a, 'b) t * 'a * 'b * ('a, 'b) t
 
-let size = function
+let[@inline] size = function
   | Node (s, _, _, _, _) -> s
   | Leaf -> 0
 
@@ -16,11 +16,11 @@ let size = function
     - [smin] and [smax] differs by less than two magnitude orders, i.e
       msbs(smin) >= msbs(smax) - 1
     where msbs is the index of the most significant bit set *)
-let smaller_ell smin smax = (smin < smax) && ((smin land smax) lsl 1 < smax)
+let[@inline] smaller_ell smin smax = (smin < smax) && ((smin land smax) lsl 1 < smax)
 
 (** [disbalanced smin smax] check if two sub-trees of size [smin] and [smax],
     are disbalanced. That is, msbs(smin) < msbs(smax) - 1 *)
-let disbalanced smin smax = smaller_ell smin (smax lsr 1)
+let[@inline] disbalanced smin smax = smaller_ell smin (smax lsr 1)
 
 (** {1 Smart but not too much constructors} *)
 
@@ -81,24 +81,73 @@ let rec node_balance l x0 x1 r =
   else
     node_ sl l x0 x1 sr r
 
+let[@inline] balanced sa sb = not (disbalanced sa sb) && not (disbalanced sb sa)
+
+(** [node_left sl l x0 x1 sr r] builds a node whose left child may be too
+    heavy, by no more than [link] makes it: a single or double rotation
+    restores the balance, without checking the nodes it builds. *)
+let node_left sl l x0 x1 sr r =
+  if not (disbalanced sr sl) then node_ sl l x0 x1 sr r else
+    match l with
+    | Node (_, ll, y0, y1, lr) ->
+      let sll = size ll and slr = size lr in
+      if balanced slr sr && balanced sll (slr + 1 + sr) then
+        node_ sll ll y0 y1 (slr + 1 + sr) (node_ slr lr x0 x1 sr r)
+      else begin match lr with
+        | Node (_, lrl, z0, z1, lrr) ->
+          let slrl = size lrl and slrr = size lrr in
+          node_ (sll + 1 + slrl) (node_ sll ll y0 y1 slrl lrl) z0 z1
+            (slrr + 1 + sr) (node_ slrr lrr x0 x1 sr r)
+        | Leaf -> assert false
+      end
+    | Leaf -> assert false
+
+let node_right sl l x0 x1 sr r =
+  if not (disbalanced sl sr) then node_ sl l x0 x1 sr r else
+    match r with
+    | Node (_, rl, y0, y1, rr) ->
+      let srl = size rl and srr = size rr in
+      if balanced sl srl && balanced (sl + 1 + srl) srr then
+        node_ (sl + 1 + srl) (node_ sl l x0 x1 srl rl) y0 y1 srr rr
+      else begin match rl with
+        | Node (_, rll, z0, z1, rlr) ->
+          let srll = size rll and srlr = size rlr in
+          node_ (sl + 1 + srll) (node_ sl l x0 x1 srll rll) z0 z1
+            (srlr + 1 + srr) (node_ srlr rlr y0 y1 srr rr)
+        | Leaf -> assert false
+      end
+    | Leaf -> assert false
+
 (** [link l x r] joins balanced trees [l] and [r] of any sizes around [x],
-    descending the spine of the larger one until the sizes are compatible.
+    descending the spine of the larger one until the sizes are compatible,
+    then fixing each node on the way back with one rotation, as in Baby
+    (Blelloch, Ferizovic & Sun, "Joinable parallel balanced binary trees").
     Cost is O(log (max sl sr / min sl sr)). *)
-let rec link l x0 x1 r =
-  let sl = size l and sr = size r in
+let rec link_aux sl l x0 x1 sr r =
   (* Fast path: [disbalanced a b] requires [a < b / 2]. *)
   if sr <= 2 * sl + 1 && sl <= 2 * sr + 1 then
     node_ sl l x0 x1 sr r
   else if disbalanced sl sr then
     match r with
-    | Node (_, rl, y0, y1, rr) -> node_balance (link l x0 x1 rl) y0 y1 rr
+    | Node (_, rl, y0, y1, rr) ->
+      let srl = size rl in
+      node_left (sl + 1 + srl) (link_aux sl l x0 x1 srl rl) y0 y1 (size rr) rr
     | Leaf -> assert false
   else if disbalanced sr sl then
     match l with
-    | Node (_, ll, y0, y1, lr) -> node_balance ll y0 y1 (link lr x0 x1 r)
+    | Node (_, ll, y0, y1, lr) ->
+      let slr = size lr in
+      node_right (size ll) ll y0 y1 (slr + 1 + sr) (link_aux slr lr x0 x1 sr r)
     | Leaf -> assert false
   else
     node_ sl l x0 x1 sr r
+
+let link l x0 x1 r =
+  let sl = size l and sr = size r in
+  if sr <= 2 * sl + 1 && sl <= 2 * sr + 1 then
+    node_ sl l x0 x1 sr r
+  else
+    link_aux sl l x0 x1 sr r
 
 (** Remove the last element, returned with the remaining tree. *)
 let rec pop_max = function
