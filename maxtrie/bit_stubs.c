@@ -66,18 +66,24 @@ value maxtrie_extract_msb_tagged(value x)
   return Val_long(maxtrie_extract_msb(Long_val(x)));
 }
 
-/* Sharing: given two structurally equal values, choose the one to keep.
+/* Sharing: given two parents whose fields [i] are structurally equal,
+   physically distinct values, make both fields point to the same one, and
+   return it.
    A value outside the minor heap (major heap, static data, or an immediate)
    is preferred, so that unification does not create pointers from the major
    heap to the minor heap and the minor copy can die young. Between two values
    of the same kind, the one at the higher address is kept, so that the choice
    is consistent. The minor heap is filled downwards, so this keeps the older
    copy, which other values are more likely to reference already; in the major
-   heap, older blocks also tend to be at higher addresses. Does not allocate,
-   and has no branch: each value is mapped to the key (young, -address),
-   compared lexicographically, by putting the young flag in the top bit of
-   the complemented address shifted right by one; the lowest key is kept. */
+   heap, older blocks also tend to be at higher addresses. Each value is
+   mapped to the key (young, -address), compared lexicographically, by putting
+   the young flag in the top bit of the complemented address shifted right by
+   one; the lowest key is kept.
 
+   The write goes through [caml_modify], which neither allocates nor runs the
+   GC (the native compiler itself calls it as a noalloc external), so this
+   primitive can be [@@noalloc]: unifying costs a single call into C. */
+#include <caml/memory.h>
 #include <caml/address_class.h>
 #include <caml/version.h>
 
@@ -108,8 +114,19 @@ static inline uintnat maxtrie_share_key(value v)
   return (maxtrie_young_bit(v) << (WORD_BITS - 1)) | (~(uintnat)v >> 1);
 }
 
-value maxtrie_share_choose(value a, value b)
+value maxtrie_share_field(value a, value b, intnat i)
 {
-  uintnat keep_a = -(uintnat)(maxtrie_share_key(a) <= maxtrie_share_key(b));
-  return (value)(((uintnat)a & keep_a) | ((uintnat)b & ~keep_a));
+  value x = Field(a, i), y = Field(b, i);
+  if (maxtrie_share_key(x) <= maxtrie_share_key(y)) {
+    caml_modify(&Field(b, i), x);
+    return x;
+  } else {
+    caml_modify(&Field(a, i), y);
+    return y;
+  }
+}
+
+value maxtrie_share_field_tagged(value a, value b, value i)
+{
+  return maxtrie_share_field(a, b, Long_val(i));
 }

@@ -18,7 +18,10 @@ let[@inline] extract_lsb x = x land (-x)
    than the most significant bit of [y]. Both must be non-negative. *)
 let[@inline] lt_msb x y = x < y && x < x lxor y
 
-(* [share_choose a b] chooses which of two equal values to keep when unifying
-   them: a value outside the minor heap if there is one, otherwise the one at
-   the higher address. *)
-external share_choose : 'a -> 'a -> 'a = "maxtrie_share_choose" [@@noalloc]
+(* [share_field a b i] unifies the fields [i] of the blocks [a] and [b],
+   which must be structurally equal but physically distinct: the field of one
+   block is replaced with the field of the other, which is returned. A value
+   outside the minor heap is kept if there is one, otherwise the one at the
+   higher address. *)
+external share_field : Obj.t -> Obj.t -> (int [@untagged]) -> Obj.t =
+  "maxtrie_share_field_tagged" "maxtrie_share_field" [@@noalloc]

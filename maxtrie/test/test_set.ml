@@ -133,7 +133,25 @@ let test_round gen_name gen ops =
       let v = { c = C.union a.c b.c; r = R.union a.r b.r } in
       agree (Printf.sprintf "union %s %s" (show a.r) (show b.r)) v;
       check_phys ("union(2) " ^ show a.r) ~result:v.c ~expect_equal_to:b;
-      store v
+      store v;
+      (* Sharing.union on rebuilt copies, whose equal subtrees are physically
+         distinct: same result, valid arguments afterwards. *)
+      let rebuild (x : v) = { x with c = C.of_list (C.elements x.c) } in
+      let a' = rebuild a and b' = rebuild b in
+      let v' = { c = C.Sharing.union a'.c b'.c; r = v.r } in
+      agree (Printf.sprintf "Sharing.union %s %s" (show a.r) (show b.r)) v';
+      agree "after Sharing.union" a'; agree "after Sharing.union" b';
+      check_phys "Sharing.union(2)" ~result:v'.c ~expect_equal_to:b';
+      (* On equal copies, the children of the roots end up unified. *)
+      let a'' = rebuild a in
+      if C.Sharing.union a''.c a'.c != a'.c then
+        fail "Sharing.union of equal sets: not physically equal";
+      if not (C.is_empty a.c) then begin
+        let field i x = Obj.field (Obj.repr x) i in
+        if field 2 a''.c != field 2 a'.c || field 3 a''.c != field 3 a'.c then
+          fail "Sharing.union of equal sets: children not unified"
+      end;
+      store a''
     | 4 | 5 ->
       let v = { c = C.inter a.c b.c; r = R.inter a.r b.r } in
       agree (Printf.sprintf "inter %s %s" (show a.r) (show b.r)) v;

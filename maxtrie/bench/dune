@@ -1,4 +1,4 @@
 (executables
- (names bench bench_map bench_sharing bench_changes)
- (modules bench bench_map bench_sharing bench_changes orig)
+ (names bench bench_map bench_sharing bench_changes bench_union_sharing)
+ (modules bench bench_map bench_sharing bench_changes bench_union_sharing orig)
  (libraries maxtrie unix))

@@ -43,9 +43,10 @@
    following a pointer to the sentinel, which makes major collections
    cheaper. *)
 
-(* The children are mutable only so that [Sharing.equal] and
-   [Sharing.compare] can replace a child with a structurally equal one. No
-   other operation mutates a tree. *)
+(* The children are mutable only so that the operations of [Sharing] can
+   replace a child with a structurally equal one. No other operation mutates
+   a tree. The children are the fields [2] and [3] of a [Node] block (see
+   [Sharing.field_l] and [Sharing.field_r]). *)
 type t =
   | Empty
   | Node of { kk: int; v: int; mutable l: t; mutable r: t }
@@ -345,55 +346,6 @@ let rec compare a b =
     if c <> 0 then c else
     compare a.r b.r
 
-(* Comparisons that, as a side effect, make structurally equal subtrees of
-   their arguments physically equal. This speeds up later comparisons and
-   lets the garbage collector reclaim duplicates. Since the representation is
-   canonical, a subtree can be replaced with any structurally equal one.
-
-   The copy to keep is chosen by [Bit_lib.share_choose], a C stub that
-   prefers a value outside the minor heap (so that unification creates no
-   major-to-minor pointers and the young copy can be collected early), and
-   otherwise the one at the higher address. Concurrent use from several
-   domains is safe: a racing reader sees either child, and both are equal. *)
-module Sharing = struct
-  let rec equal a b =
-    a == b ||
-    match a, b with
-    | Node a, Node b ->
-      a.kk = b.kk && a.v = b.v &&
-      (a.l == b.l || (equal a.l b.l && (
-           if Bit_lib.share_choose a.l b.l == a.l
-           then b.l <- a.l else a.l <- b.l;
-           true))) &&
-      (a.r == b.r || (equal a.r b.r && (
-           if Bit_lib.share_choose a.r b.r == a.r
-           then b.r <- a.r else a.r <- b.r;
-           true)))
-    | _ -> false
-
-  let rec compare a b =
-    if a == b then 0 else
-    match a, b with
-    | Empty, _ -> -1
-    | _, Empty -> 1
-    | Node a, Node b ->
-      let c = Int.compare (key a.kk) (key b.kk) in
-      if c <> 0 then c else
-      let c = Int.compare a.v b.v in
-      if c <> 0 then c else
-      let c = if a.l == b.l then 0 else compare a.l b.l in
-      if c <> 0 then c else begin
-        if a.l != b.l then
-          (if Bit_lib.share_choose a.l b.l == a.l
-           then b.l <- a.l else a.l <- b.l);
-        let c = if a.r == b.r then 0 else compare a.r b.r in
-        if c = 0 && a.r != b.r then
-          (if Bit_lib.share_choose a.r b.r == a.r
-           then b.r <- a.r else a.r <- b.r);
-        c
-      end
-end
-
 (* The root of the larger tree is irrelevant to [subset] and [disjoint]; the
    root of the smaller one is looked up in the other tree. Carrying it into the
    recursion instead, as [union] does, avoids this second descent but makes
@@ -664,6 +616,303 @@ and vunion_same ha sa pa hb sb pb ka kb =
   | Node n, _ when kb = k && hb == sb && v = n.v && l == n.l && r == n.r -> sb
   | _, Node n when ka = k && ha == sa && v = n.v && l == n.l && r == n.r -> sa
   | _ -> Node {kk; v; l; r}
+
+(* -------------------------------------------------------------------------- *)
+(* Sharing. *)
+
+(* Operations that, as a side effect, make structurally equal subtrees of
+   their arguments physically equal. This speeds up later comparisons and
+   lets the garbage collector reclaim duplicates. Since the representation is
+   canonical, a subtree can be replaced with any structurally equal one.
+
+   Two children are unified by [Bit_lib.share_field], a C stub that keeps a
+   value outside the minor heap (so that unification creates no
+   major-to-minor pointers and the young copy can be collected early), and
+   otherwise the one at the higher address. Concurrent use from several
+   domains is safe: a racing reader sees either child, and both are equal. *)
+module Sharing = struct
+  (* The fields of the children in a [Node] block. *)
+  let field_l = 2
+  let field_r = 3
+
+  (* [share a b i] unifies the fields [i] of the nodes [a] and [b], and
+     returns the child that is kept. *)
+  let[@inline] share (a : t) (b : t) i : t =
+    Obj.obj (Bit_lib.share_field (Obj.repr a) (Obj.repr b) i)
+
+  let rec equal a b =
+    a == b ||
+    match a, b with
+    | Node na, Node nb ->
+      na.kk = nb.kk && na.v = nb.v &&
+      (na.l == nb.l || (equal na.l nb.l && (ignore (share a b field_l); true))) &&
+      (na.r == nb.r || (equal na.r nb.r && (ignore (share a b field_r); true)))
+    | _ -> false
+
+  let rec compare a b =
+    if a == b then 0 else
+    match a, b with
+    | Empty, _ -> -1
+    | _, Empty -> 1
+    | Node na, Node nb ->
+      let c = Int.compare (key na.kk) (key nb.kk) in
+      if c <> 0 then c else
+      let c = Int.compare na.v nb.v in
+      if c <> 0 then c else
+      let c = if na.l == nb.l then 0 else compare na.l nb.l in
+      if c <> 0 then c else begin
+        if na.l != nb.l then ignore (share a b field_l);
+        let c = if na.r == nb.r then 0 else compare na.r nb.r in
+        if c = 0 && na.r != nb.r then ignore (share a b field_r);
+        c
+      end
+
+  (* Union. A copy of [union] and its auxiliary functions that unifies the
+     children of its arguments when it finds them equal.
+
+     The union [u] of two subtrees [x] and [y] is [y] if [x ⊆ y], or [x] if
+     [y ⊆ x] (see [union]). When this union has already unified the equal
+     children of [x] and [y], [x] and [y] are equal if and only if their roots
+     have the same key and bitmap and their children are physically equal: a
+     constant-time test. Hence, the unification proceeds bottom-up: after
+     computing the union of two children of nodes [a] and [b], we unify them
+     when they pass this test.
+
+     Not every union of two equal subtrees can be followed by a unification:
+     when [a] lies below the most significant bit of [b], [union a b.r] may
+     find [a] equal to [b.r], but the parent of [a] is not at hand; and in
+     [union_push], the left child [y] of the carried node is a left child
+     while the subtree it is merged with is a right child, which
+     [Bit_lib.share_field] cannot unify (it takes a single field index). The
+     children of these subtrees are still unified. *)
+
+  let[@inline] same_root x y =
+    match x, y with
+    | Node x, Node y -> x.kk = y.kk && x.v = y.v && x.l == y.l && x.r == y.r
+    | _ -> false
+
+  (* [share_if a x b y i u]: [x] and [y] are the fields [i] of [a] and [b],
+     and [u] is their union. Returns [u], or the child that is kept if [x] and
+     [y] are unified, so that the physical equality tests of the caller see
+     the unified children. *)
+  let[@inline] share_if a x b y i u =
+    if x != y && (u == x || u == y) && same_root x y then share a b i else u
+
+  let rec union a b =
+    if a == b then b else
+    match a, b with
+    | Empty, _ -> b
+    | _, Empty -> a
+    | Node na, Node nb ->
+      let ka = key na.kk and kb = key nb.kk in
+      if ka = kb then
+        let l = share_if a na.l b nb.l field_l (union na.l nb.l) in
+        let r = share_if a na.r b nb.r field_r (union na.r nb.r) in
+        let v = na.v lor nb.v in
+        if v = nb.v && l == nb.l && r == nb.r then b
+        else if v = na.v && l == na.l && r == na.r then a
+        else Node {kk = na.kk; v; l; r}
+      else if lt_msb ka kb then
+        (* [a] lies below the most significant bit of [kb]. *)
+        let r = union a nb.r in
+        if r == nb.r then b else Node {nb with r}
+      else if lt_msb kb ka then
+        let r = union na.r b in
+        if r == na.r then a else Node {na with r}
+      else
+        (* Same most significant bit [m]: the smaller root is carried into the
+           upper half. *)
+        let m = mbit na.kk in
+        let r = share_if a na.r b nb.r field_r (union na.r nb.r) in
+        if ka > kb then
+          let l = union_push false na.l b nb.v nb.l (kb lxor m) in
+          if l == na.l && r == na.r then a else Node {na with l; r}
+        else
+          let l = union_push true nb.l a na.v na.l (ka lxor m) in
+          if l == nb.l && r == nb.r then b else Node {nb with l; r}
+
+  (* [union_o xb x y] is the union of [x] and [y], where [xb] tells whether [x]
+     comes from the side whose physical identity is preserved. *)
+  and union_o xb x y =
+    if xb then union y x else union x y
+
+  (* [union_push xb x h v y k] is the union of the tree [x] and the "pennant"
+     made of the carried node [h], standing for the key [k] (greater than every
+     key of [y]) with the bitmap [v], followed by its left child [y]. If the
+     result is equal to [x], then [x] is returned. *)
+  and union_push xb x h v y k =
+    match x with
+    | Empty -> push k v y
+    | Node xn ->
+      let kx = key xn.kk in
+      if kx = k then
+        let m = mbit xn.kk in
+        let l, r =
+          match y with
+          | Node yn when key yn.kk land m <> 0 ->
+            union_push xb xn.l y yn.v yn.l (key yn.kk lxor m),
+            share_if x xn.r y yn.r field_r (union_o xb xn.r yn.r)
+          | _ -> xn.l, union_o xb xn.r y
+        in
+        let v' = xn.v lor v in
+        if v' = xn.v && l == xn.l && r == xn.r then x
+        else Node {xn with v = v'; l; r}
+      else if lt_msb kx k then
+        (* [x] lies in the lower half of the result. *)
+        let kk = enc k in
+        let m = mbit kk in
+        match y with
+        | Node yn when key yn.kk land m <> 0 ->
+          Node {kk; v; l = push (key yn.kk lxor m) yn.v yn.l;
+                r = union_o xb x yn.r}
+        | _ -> Node {kk; v; l = Empty; r = union_o xb x y}
+      else if lt_msb k kx then
+        let r = union_push xb xn.r h v y k in
+        if r == xn.r then x else Node {xn with r}
+      else
+        (* Same most significant bit [m], [k <> kx]. *)
+        let m = mbit xn.kk in
+        match y with
+        | Node yn when key yn.kk land m <> 0 ->
+          let r = share_if x xn.r y yn.r field_r (union_o xb xn.r yn.r) in
+          if kx > k then
+            (* Both [k] and the root of [y] are carried into the upper half. *)
+            let l =
+              if xb then vunion h yn.l true xn.l xn.l true (m - 1)
+              else vunion xn.l xn.l true h yn.l true (m - 1)
+            in
+            if l == xn.l && r == xn.r then x else Node {xn with l; r}
+          else
+            (* [kx < k]: the upper halves are the pennants of [x] and [y]. *)
+            let l =
+              if xb then vunion y yn.l true x xn.l true (m - 1)
+              else vunion x xn.l true y yn.l true (m - 1)
+            in
+            Node {kk = pack (index xn.kk) k; v; l; r}
+        | _ ->
+          let r = union_o xb xn.r y in
+          if kx > k then
+            let l = add_bits (k lxor m) v xn.l in
+            if l == xn.l && r == xn.r then x else Node {xn with l; r}
+          else
+            Node {kk = pack (index xn.kk) k; v;
+                  l = push (kx lxor m) xn.v xn.l; r}
+
+  (* [vunion ha sa pa hb sb pb mk] is the union of two virtual trees. If the
+     result is equal to an argument that is a plain tree, this argument is
+     returned (preferably the second one). *)
+  and vunion ha sa pa hb sb pb mk =
+    if ha == sa then
+      if hb == sb then union (vtail sa pa) (vtail sb pb)
+      else match hb with
+        | Node n when n.l == sb ->
+          (* A single carried key, possibly followed by its left child. *)
+          if pb then union_push false (vtail sa pa) hb n.v n.l (key n.kk land mk)
+          else add_bits (key n.kk land mk) n.v (vtail sa pa)
+        | _ -> vunion_gen ha sa pa hb sb pb mk
+    else match ha with
+      | Node n when hb == sb && n.l == sa ->
+        if pa then union_push true (vtail sb pb) ha n.v n.l (key n.kk land mk)
+        else add_bits (key n.kk land mk) n.v (vtail sb pb)
+      | _ -> vunion_gen ha sa pa hb sb pb mk
+
+  and vunion_gen ha sa pa hb sb pb mk =
+    let ka = vmax ha sa pa mk and kb = vmax hb sb pb mk in
+    if ka < 0 then materialize hb sb pb mk
+    else if kb < 0 then materialize ha sa pa mk
+    else if lt_msb ka kb then vunion_below ha sa pa hb sb pb mk kb false
+    else if lt_msb kb ka then vunion_below hb sb pb ha sa pa mk ka true
+    else vunion_same ha sa pa hb sb pb ka kb
+
+  (* [vunion_below] handles the case where [x] lies below the most significant
+     bit [m] of the maximum [ky] of [y]: the result has the root of [y], the
+     upper half of [y], and the union of [x] with the lower half of [y]. The
+     flag [sw] tells whether [x] is the second argument of [vunion]. *)
+  and vunion_below hx sx px hy sy py mk ky sw =
+    match hy with
+    | Empty -> assert false
+    | Node hyn ->
+      if hy == sy then
+        (* [y] is a plain tree. *)
+        let r =
+          if sw then vunion hyn.r hyn.r true hx sx px mk
+          else vunion hx sx px hyn.r hyn.r true mk
+        in
+        if r == hyn.r then hy else Node {hyn with r}
+      else
+        let m = msb ky in
+        let mk = m - 1 in
+        let h = hyn.l in
+        let c = first_low m h sy in
+        let l, r =
+          if c != sy then
+            materialize h c false mk,
+            (if sw then vunion c sy py hx sx px mk
+             else vunion hx sx px c sy py mk)
+          else match sy with
+            | Node syn when py && key syn.kk land m <> 0 ->
+              (* The root of the tail joins the chain. *)
+              materialize h syn.l true mk,
+              (let t = syn.r in
+               if sw then vunion t t true hx sx px mk
+               else vunion hx sx px t t true mk)
+            | _ ->
+              materialize h c false mk,
+              (let t = vtail sy py in
+               if sw then vunion t t true hx sx px mk
+               else vunion hx sx px t t true mk)
+        in
+        Node {kk = pack (enc_index m) ky; v = hyn.v; l; r}
+
+  (* [vunion_same] handles the case where the maxima [ka] and [kb] of [a] and
+     [b] have the same most significant bit [m]. The largest maximum (or both,
+     if they are equal) becomes the root. Both virtual trees are split at [m]:
+     the upper halves are merged into the left child, and the lower halves
+     into the right child. *)
+  and vunion_same ha sa pa hb sb pb ka kb =
+    let k = if ka > kb then ka else kb in
+    let m = msb k in
+    let kk = pack (enc_index m) k in
+    (* Split [a] into [uha usa upa] and [lha lsa lpa]. If [ka = k], its
+       maximum is popped first. *)
+    let uha, usa, upa, lha, lsa, lpa =
+      match sa with
+      | Node n when ka = k && ha == sa ->
+        (* Popping the root of a plain tree yields its two children. *)
+        n.l, n.l, true, n.r, n.r, true
+      | _ ->
+        let h = if ka = k then left ha else ha in
+        let c = first_low m h sa in
+        if c != sa then h, c, false, c, sa, pa
+        else match sa with
+          | Node n when pa && key n.kk land m <> 0 ->
+            h, n.l, true, n.r, n.r, true
+          | _ -> h, sa, false, sa, sa, pa
+    in
+    let uhb, usb, upb, lhb, lsb, lpb =
+      match sb with
+      | Node n when kb = k && hb == sb -> n.l, n.l, true, n.r, n.r, true
+      | _ ->
+        let h = if kb = k then left hb else hb in
+        let c = first_low m h sb in
+        if c != sb then h, c, false, c, sb, pb
+        else match sb with
+          | Node n when pb && key n.kk land m <> 0 ->
+            h, n.l, true, n.r, n.r, true
+          | _ -> h, sb, false, sb, sb, pb
+    in
+    let v =
+      if ka = kb then bits ha lor bits hb
+      else if ka = k then bits ha
+      else bits hb
+    in
+    let l = vunion uha usa upa uhb usb upb (m - 1) in
+    let r = vunion lha lsa lpa lhb lsb lpb (m - 1) in
+    match sb, sa with
+    | Node n, _ when kb = k && hb == sb && v = n.v && l == n.l && r == n.r -> sb
+    | _, Node n when ka = k && ha == sa && v = n.v && l == n.l && r == n.r -> sa
+    | _ -> Node {kk; v; l; r}
+end
 
 (* -------------------------------------------------------------------------- *)
 (* Intersection. *)

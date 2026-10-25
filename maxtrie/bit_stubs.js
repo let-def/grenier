@@ -24,9 +24,10 @@ function maxtrie_extract_msb_tagged(x) {
   return x === 0 ? 0 : (1 << (31 - Math.clz32(x))) | 0;
 }
 
-// There is no minor heap and no address order: keep the first value, which
-// is a consistent choice.
-//Provides: maxtrie_share_choose const
-function maxtrie_share_choose(a, b) {
-  return a;
+// There is no minor heap and no address order: keep the field of the first
+// block, which is a consistent choice. Field [i] of a block is at index
+// [i + 1] (index 0 holds the tag).
+//Provides: maxtrie_share_field_tagged
+function maxtrie_share_field_tagged(a, b, i) {
+  return b[i + 1] = a[i + 1];
 }

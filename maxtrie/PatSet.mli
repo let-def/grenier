@@ -105,15 +105,18 @@ val equal: t -> t -> bool
    structural order, not the lexicographic order on sorted elements. *)
 val compare: t -> t -> int
 
-(**Comparisons with sharing. [Sharing.equal] and [Sharing.compare] return
-   the same results as [equal] and [compare], but as a side effect they make
-   the structurally equal subtrees of their arguments physically equal. This
-   makes later comparisons of these sets faster and reduces memory usage when
-   many equal sets are built independently. It is invisible to every other
-   operation, and safe in the presence of concurrent domains. *)
+(**Operations with sharing. [Sharing.equal], [Sharing.compare] and
+   [Sharing.union] return the same results as [equal], [compare] and [union],
+   but as a side effect they make the structurally equal subtrees of their
+   arguments physically equal ([Sharing.union] only unifies most of them, at
+   a constant cost per subtree that its traversal visits). This makes later
+   comparisons of these sets faster and reduces memory usage when many equal
+   sets are built independently. It is invisible to every other operation,
+   and safe in the presence of concurrent domains. *)
 module Sharing : sig
   val equal: t -> t -> bool
   val compare: t -> t -> int
+  val union: t -> t -> t
 end
 
 (**[disjoint s1 s2] determines whether [s1] and [s2] are disjoint. *)
