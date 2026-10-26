@@ -130,3 +130,20 @@ value maxtrie_share_field_tagged(value a, value b, value i)
 {
   return maxtrie_share_field(a, b, Long_val(i));
 }
+
+value maxtrie_share_fields(value a, intnat i, value b, intnat j)
+{
+  value x = Field(a, i), y = Field(b, j);
+  if (maxtrie_share_key(x) <= maxtrie_share_key(y)) {
+    caml_modify(&Field(b, j), x);
+    return x;
+  } else {
+    caml_modify(&Field(a, i), y);
+    return y;
+  }
+}
+
+value maxtrie_share_fields_tagged(value a, value i, value b, value j)
+{
+  return maxtrie_share_fields(a, Long_val(i), b, Long_val(j));
+}

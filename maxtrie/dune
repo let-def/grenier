@@ -9,6 +9,18 @@
  (dev (flags (:standard -w +A-4-9-40-41-42-44-45-70)))
  (release (flags (:standard -noassert))))
 
+; PatSetCompact has the interface of PatSet.
+(rule
+ (targets PatSetCompact.mli)
+ (deps PatSet.mli)
+ (action
+  (with-stdout-to %{targets}
+   (progn
+    (echo "# 1 \"maxtrie/PatSet.mli\"\n")
+    (run sed
+     -e "s/^(\\*\\*Immutable sets of non-negative integers.$/(**Immutable sets of non-negative integers: {!PatSet}, with nodes that only have fields for their non-empty children (a leaf takes 3 words instead of 5)./"
+     PatSet.mli)))))
+
 ; PatMapSharing is generated from PatMap: the children of nodes become
 ; mutable (so the type parameter is invariant) and the Sharing module is
 ; appended. If a substitution stops matching, compilation fails: Sharing

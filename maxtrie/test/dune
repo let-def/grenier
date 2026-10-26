@@ -1,6 +1,6 @@
 ; The tests compare against Stdlib's to_rev_seq, added in OCaml 4.13.
 (executables
- (names test_set test_map test_map_sharing)
+ (names test_set test_set_compact test_map test_map_sharing)
  (enabled_if (>= %{ocaml_version} 4.13))
  (modes native byte_complete)
  (libraries maxtrie))
@@ -20,11 +20,25 @@
      -e "s/^let name = \"PatMap\"$/let name = \"PatMapSharing\"/"
      test_map.ml)))))
 
+; The set tests, run on PatSetCompact.
+(rule
+ (targets test_set_compact.ml)
+ (deps test_set.ml)
+ (action
+  (with-stdout-to %{targets}
+   (progn
+    (echo "# 1 \"maxtrie/test/test_set.ml\"\n")
+    (run sed
+     -e "s/^module C = Maxtrie.PatSet$/module C = Maxtrie.PatSetCompact/"
+     -e "s/^let set_name = \"PatSet\"$/let set_name = \"PatSetCompact\"/"
+     test_set.ml)))))
+
 (rule
  (alias runtest)
  (enabled_if (>= %{ocaml_version} 4.13))
  (action
   (progn
    (run %{exe:test_set.exe})
+   (run %{exe:test_set_compact.exe})
    (run %{exe:test_map.exe})
    (run %{exe:test_map_sharing.exe}))))

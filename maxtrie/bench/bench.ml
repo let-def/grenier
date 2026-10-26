@@ -1,4 +1,5 @@
-(* Micro-benchmarks: new PatSet vs the original PatSet vs Stdlib.Set. *)
+(* Micro-benchmarks: new PatSet vs PatSetCompact vs the original PatSet vs
+   Stdlib.Set. *)
 
 module type S = sig
   type t
@@ -41,10 +42,12 @@ module Bench (X : S) = struct
       "diff", time (fun () -> for _ = 1 to 10 do ignore (Sys.opaque_identity (X.diff s1 s2)) done);
       "subset", time (fun () -> for _ = 1 to 10 do ignore (Sys.opaque_identity (X.subset (X.inter s1 s2) s1)) done);
       "fold", time (fun () -> for _ = 1 to 10 do ignore (Sys.opaque_identity (X.fold (+) s1 0)) done);
+      "kwords", float (Obj.reachable_words (Obj.repr s1)) /. 1000.;
     ]
 end
 
 module New = Bench (Maxtrie.PatSet)
+module Cmp = Bench (Maxtrie.PatSetCompact)
 module Old = Bench (struct include Orig let subset = subset end)
 module Std = Bench (Set.Make (Int))
 
@@ -60,9 +63,14 @@ let () =
       let xs = Array.init n (fun _ -> gen ()) in
       let ys = Array.init n (fun _ -> gen ()) in
       let qs = Array.init 200_000 (fun _ -> gen ()) in
-      let rn = New.run xs ys qs and ro = Old.run xs ys qs and rs = Std.run xs ys qs in
-      Printf.printf "\n== %s\n%-12s %10s %10s %10s %8s\n" name "op (ms)" "new" "orig" "Stdlib" "new/orig";
-      List.iter2 (fun (op, tn) ((_, to_), (_, ts)) ->
-          Printf.printf "%-12s %10.2f %10.2f %10.2f %8.2f\n" op tn to_ ts (tn /. to_))
-        rn (List.combine ro rs))
+      let rn = New.run xs ys qs and rc = Cmp.run xs ys qs in
+      let ro = Old.run xs ys qs and rs = Std.run xs ys qs in
+      Printf.printf "\n== %s\n%-12s %10s %10s %10s %10s %8s %8s\n" name "op (ms)"
+        "new" "compact" "orig" "Stdlib" "new/orig" "cmp/new";
+      List.iteri (fun i (op, tn) ->
+          let tc = snd (List.nth rc i) and to_ = snd (List.nth ro i)
+          and ts = snd (List.nth rs i) in
+          Printf.printf "%-12s %10.2f %10.2f %10.2f %10.2f %8.2f %8.2f\n"
+            op tn tc to_ ts (tn /. to_) (tc /. tn))
+        rn)
     profiles

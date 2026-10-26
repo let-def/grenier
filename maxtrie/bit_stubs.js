@@ -31,3 +31,9 @@ function maxtrie_extract_msb_tagged(x) {
 function maxtrie_share_field_tagged(a, b, i) {
   return b[i + 1] = a[i + 1];
 }
+
+// As [maxtrie_share_field_tagged], with a field index per block.
+//Provides: maxtrie_share_fields_tagged
+function maxtrie_share_fields_tagged(a, i, b, j) {
+  return b[j + 1] = a[i + 1];
+}

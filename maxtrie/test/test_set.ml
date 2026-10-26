@@ -1,6 +1,15 @@
 (* Differential testing of [PatSet] against [Stdlib.Set.Make (Int)]. *)
 
 module C = Maxtrie.PatSet
+let set_name = "PatSet"
+
+(* Whether the children of the roots of two equal non-empty sets are
+   physically equal: the fields from the index [2] on, whatever the layout of
+   the nodes. *)
+let children_unified (x : C.t) (y : C.t) =
+  let x = Obj.repr x and y = Obj.repr y in
+  let rec loop i = i >= Obj.size x || (Obj.field x i == Obj.field y i && loop (i + 1)) in
+  Obj.size x = Obj.size y && loop 2
 module R = Set.Make (Int)
 
 let failures = ref 0
@@ -147,8 +156,7 @@ let test_round gen_name gen ops =
       if C.Sharing.union a''.c a'.c != a'.c then
         fail "Sharing.union of equal sets: not physically equal";
       if not (C.is_empty a.c) then begin
-        let field i x = Obj.field (Obj.repr x) i in
-        if field 2 a''.c != field 2 a'.c || field 3 a''.c != field 3 a'.c then
+        if not (children_unified a''.c a'.c) then
           fail "Sharing.union of equal sets: children not unified"
       end;
       store a''
@@ -204,8 +212,7 @@ let test_round gen_name gen ops =
       let a'' = { c = C.of_list (C.elements a.c); r = a.r } in
       if C.Sharing.compare_deep a''.c a'.c <> 0 then fail "compare_deep: not reflexive";
       if not (C.is_empty a.c) then begin
-        let field i x = Obj.field (Obj.repr x) i in
-        if field 2 a''.c != field 2 a'.c || field 3 a''.c != field 3 a'.c then
+        if not (children_unified a''.c a'.c) then
           fail "compare_deep of equal sets: children not unified"
       end;
       agree "after compare_deep" a'';
@@ -371,8 +378,20 @@ let () =
   let rounds =
     match Sys.getenv_opt "ROUNDS" with Some s -> int_of_string s | None -> 200
   in
-  Printf.printf "PatSet: seed %d, %d rounds\n%!" seed rounds;
+  Printf.printf "%s: seed %d, %d rounds\n%!" set_name seed rounds;
   Random.init seed;
+  (* A copy of the empty set, which is not physically [C.empty]. *)
+  let e = (Marshal.from_string (Marshal.to_string C.empty []) 0 : C.t) in
+  let s = C.of_list [1; 100; 10_000] in
+  if not (C.is_empty e && C.equal e C.empty && C.compare e C.empty = 0
+          && C.Sharing.equal e C.empty && C.cardinal e = 0 && C.elements e = []
+          && C.union e s == s && C.union s e == s && C.is_empty (C.inter s e)
+          && C.diff s e == s && C.is_empty (C.diff e s) && C.subset e s
+          && not (C.mem 0 e) && C.min_elt_opt e = None && C.max_elt_opt e = None
+          && C.equal (C.add 0 e) (C.singleton 0)
+          && C.extract_shared_prefix e C.empty = (e, (C.empty, C.empty)))
+  then fail "copy of the empty set";
+  (try C.check e with Failure msg -> fail "copy of the empty set: %s" msg);
   (match C.add (-1) C.empty with
    | _ -> fail "add (-1) should fail"
    | exception Invalid_argument _ -> ());
@@ -381,4 +400,4 @@ let () =
     test_round name gen 400
   done;
   if !failures > 0 then (Printf.printf "%d failures\n" !failures; exit 1)
-  else print_endline "PatSet: OK"
+  else Printf.printf "%s: OK\n" set_name

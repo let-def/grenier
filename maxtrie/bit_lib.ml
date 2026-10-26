@@ -25,3 +25,10 @@ let[@inline] lt_msb x y = x < y && x < x lxor y
    higher address. *)
 external share_field : Obj.t -> Obj.t -> (int [@untagged]) -> Obj.t =
   "maxtrie_share_field_tagged" "maxtrie_share_field" [@@noalloc]
+
+(* [share_fields a i b j] is [share_field], unifying the field [i] of [a]
+   with the field [j] of [b] (for PatSetCompact, where the index of a child
+   depends on the constructor). *)
+external share_fields :
+  Obj.t -> (int [@untagged]) -> Obj.t -> (int [@untagged]) -> Obj.t =
+  "maxtrie_share_fields_tagged" "maxtrie_share_fields" [@@noalloc]
