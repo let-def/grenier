@@ -189,6 +189,27 @@ let test_round gen_name gen ops =
       then fail "Sharing.compare";
       agree "after Sharing" a'; agree "after Sharing" b;
       store a';
+      (* Sharing.compare_deep: a total order compatible with equality, which
+         unifies the children of equal sets. *)
+      let a' = { c = C.of_list (C.elements a.c); r = a.r } in
+      let d = pick () in
+      let cab = C.Sharing.compare_deep a'.c b.c in
+      if (cab = 0) <> R.equal a.r b.r then fail "compare_deep/equal";
+      if Int.compare 0 cab <> Int.compare (C.Sharing.compare_deep b.c a'.c) 0 then
+        fail "compare_deep: not antisymmetric";
+      let cbd = C.Sharing.compare_deep b.c d.c in
+      if cab < 0 && cbd < 0 && C.Sharing.compare_deep a'.c d.c >= 0 then
+        fail "compare_deep: not transitive";
+      agree "after compare_deep" a'; agree "after compare_deep" b;
+      let a'' = { c = C.of_list (C.elements a.c); r = a.r } in
+      if C.Sharing.compare_deep a''.c a'.c <> 0 then fail "compare_deep: not reflexive";
+      if not (C.is_empty a.c) then begin
+        let field i x = Obj.field (Obj.repr x) i in
+        if field 2 a''.c != field 2 a'.c || field 3 a''.c != field 3 a'.c then
+          fail "compare_deep of equal sets: children not unified"
+      end;
+      agree "after compare_deep" a'';
+      store a'';
       let c = C.compare a.c b.c in
       if (c = 0) <> R.equal a.r b.r then fail "compare/equal";
       if Int.compare 0 c <> Int.compare (C.compare b.c a.c) 0 then

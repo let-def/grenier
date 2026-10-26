@@ -667,6 +667,26 @@ module Sharing = struct
         c
       end
 
+  (* Children first: both pairs of children are always compared, so that
+     every pair of equal subtrees met on the way is unified, before the roots.
+     This is the lexicographic order on (left child, right child, key,
+     bitmap), a total order, but not the same as [compare]. *)
+  let rec compare_deep a b =
+    if a == b then 0 else
+    match a, b with
+    | Empty, _ -> -1
+    | _, Empty -> 1
+    | Node na, Node nb ->
+      let cl = if na.l == nb.l then 0 else compare_deep na.l nb.l in
+      if cl = 0 && na.l != nb.l then ignore (share a b field_l);
+      let cr = if na.r == nb.r then 0 else compare_deep na.r nb.r in
+      if cr = 0 && na.r != nb.r then ignore (share a b field_r);
+      if cl <> 0 then cl else
+      if cr <> 0 then cr else
+      let c = Int.compare (key na.kk) (key nb.kk) in
+      if c <> 0 then c else
+        Int.compare na.v nb.v
+
   (* Union. A copy of [union] and its auxiliary functions that unifies the
      children of its arguments when it finds them equal.
 

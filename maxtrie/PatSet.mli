@@ -117,6 +117,13 @@ module Sharing : sig
   val equal: t -> t -> bool
   val compare: t -> t -> int
   val union: t -> t -> t
+
+  (**[compare_deep] is another total order on sets, compatible with
+     [equal]. Unlike [compare], which stops at the first difference, it
+     compares the children of the roots before the roots themselves, and all
+     of them: it walks the parts of both sets that have the same shape, and
+     unifies every equal subtree found there. *)
+  val compare_deep: t -> t -> int
 end
 
 (**[disjoint s1 s2] determines whether [s1] and [s2] are disjoint. *)
