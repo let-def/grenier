@@ -67,6 +67,41 @@ let rec of_range_m lo hi =
   if lo >= hi then M.leaf
   else let m = (lo + hi) / 2 in M.node (of_range_m lo m) m (of_range_m (m + 1) hi)
 
+(* Lbt, with a measure counting elements, computed on demand. Nodes built by
+   rebalancing must have no measure, and the cached measures of the others
+   must stay valid. *)
+let rec measure_l t = match Lbt.measure t, t with
+  | Some m, _ -> m
+  | None, Lbt.Leaf -> 0
+  | None, (Lbt.Node {l; r; _}) ->
+    let m = measure_l l + 1 + measure_l r in
+    Lbt.set_measure t m;
+    m
+
+let rec validate_l = function
+  | Lbt.Node {size; l; r; m; _} ->
+    let sl = Lbt.size l and sr = Lbt.size r in
+    assert (not (disbalanced sl sr) && not (disbalanced sr sl));
+    assert (size = sl + 1 + sr);
+    assert (match m with None -> true | Some m -> m = size);
+    validate_l l;
+    validate_l r
+  | Lbt.Leaf -> ()
+
+let rec elements_l acc = function
+  | Lbt.Leaf -> acc
+  | Lbt.Node {l; x; r; _} -> elements_l (x :: elements_l acc r) l
+
+let rec of_range_l lo hi =
+  if lo >= hi then Lbt.leaf
+  else let m = (lo + hi) / 2 in Lbt.node (of_range_l lo m) m (of_range_l (m + 1) hi)
+
+let check_l ~fresh n t =
+  validate_l t;
+  assert ((not fresh || Lbt.measure t = None) && elements_l [] t = enum n);
+  assert (measure_l t = n);
+  validate_l t
+
 let () =
   let n = 150 in
   for a = 0 to n do
@@ -82,6 +117,12 @@ let () =
       validate2 (Bt2.join (of_range2 0 a) (of_range2 a (a + b)));
       validate2 (Bt2.node (of_range2 0 a) a (-a) (of_range2 (a + 1) (a + 1 + b)));
       validate_m (M.join (of_range_m 0 a) (of_range_m a (a + b)));
-      validate_m (M.node (of_range_m 0 a) a (of_range_m (a + 1) (a + 1 + b)))
+      validate_m (M.node (of_range_m 0 a) a (of_range_m (a + 1) (a + 1 + b)));
+      let l = of_range_l 0 a and r = of_range_l a (a + b) in
+      ignore (measure_l l, measure_l r);
+      check_l ~fresh:(a > 0 && b > 0) (a + b) (Lbt.join l r);
+      let r = of_range_l (a + 1) (a + 1 + b) in
+      ignore (measure_l r);
+      check_l ~fresh:true (a + b + 1) (Lbt.node l a r)
     done
   done

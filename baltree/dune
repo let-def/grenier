@@ -1,7 +1,7 @@
 (library
  (name grenier_baltree)
  (public_name grenier.baltree)
- (modules Bt1 Bt2 Mbt)
+ (modules Bt1 Bt2 Mbt Lbt)
  (wrapped false)
  (synopsis "Balanced trees"))
 
