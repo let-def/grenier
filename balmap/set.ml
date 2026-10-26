@@ -5,6 +5,10 @@ module type S = sig
   val rank : int -> t -> elt
   val rank_of : t -> elt -> int option
   val to_list : t -> elt list
+
+  (** [intern x s] is [Right y] if [s] contains an element [y] equal to [x],
+      and [Left (add x s)] otherwise, with a single traversal of [s]. *)
+  val intern : elt -> t -> (t, elt) Either.t
 end
 
 type +'a balset = 'a Bt1.t = private
@@ -52,6 +56,24 @@ struct
         if r' == r then t else Bt1.node l k' r'
       else
         t
+
+  exception Interned of elt
+
+  let intern k t =
+    let rec aux = function
+      | Leaf -> singleton k
+      | Node (_, l, k', r) ->
+        let c = O.compare k k' in
+        if c < 0 then
+          Bt1.node (aux l) k' r
+        else if c > 0 then
+          Bt1.node l k' (aux r)
+        else
+          raise_notrace (Interned k')
+    in
+    match aux t with
+    | t -> Either.Left t
+    | exception (Interned k') -> Either.Right k'
 
   let rec remove k = function
     | Leaf -> Bt1.leaf

@@ -149,6 +149,9 @@ let test_set range =
   let k = rand_key range in
   check "mem" (BS.mem k b = SS.mem k s);
   check "find_opt" (BS.find_opt k b = SS.find_opt k s);
+  (match BS.intern k b with
+   | Either.Left b' -> check "intern absent" (not (SS.mem k s)); same_set "intern" b' (SS.add k s)
+   | Either.Right k' -> check "intern present" (SS.find_opt k s = Some k'));
   check "min" (BS.min_elt_opt b = SS.min_elt_opt s);
   check "max" (BS.max_elt_opt b = SS.max_elt_opt s);
   check "find_first" (BS.find_first_opt (fun x -> x >= k) b = SS.find_first_opt (fun x -> x >= k) s);
