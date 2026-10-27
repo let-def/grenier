@@ -1,3 +1,36 @@
+Unreleased
+--------------------------
+
+Maxtrie:
+- add `PatSetCompact`, a `PatSet` whose nodes hold only their non-empty
+  children: sets take 20% fewer words, and operations run within about 1.1x
+  of `PatSet`
+- add `PatSet.Sharing.union`, which makes the equal subtrees of its result
+  and of its arguments physically shared
+- add `PatSet.Sharing.compare_deep`, a total order that recovers more sharing
+  than `Sharing.compare`, e.g. as the order of a registry interning sets
+- `Bit_lib` is now a private module
+
+Balmap:
+- add `Set.intern`, which returns the element of a set equal to its argument,
+  or adds it, in a single descent
+- faster `Set` functions, several of them following Baby: `inter`, `diff`,
+  `disjoint` and `subset` (up to several times faster on some workloads),
+  `split`, `remove`, `partition`, `equal`, `compare`, `min_elt`, `max_elt`
+  and `of_list` (sorted lists are built in linear time)
+- faster `Map` functions: `of_list` and `of_seq` (3-4x on sorted lists),
+  `min_binding`, `max_binding` and `union` (up to 4x on overlapping maps)
+- more sharing: `Set.partition` returns the subtrees that stay on one side,
+  `union` of a set or map with a subset returns it physically
+- add `compare.exe`, benchmarking `Set` and `Map` against Stdlib and Baby
+
+Baltree:
+- add `Lbt`, a tree whose measure is computed lazily and cached in the nodes
+- add `Bt1.Unbalanced`, trees without balance invariant, for
+  intermediate results that are only searched
+- faster `link` in `Bt1`, `Bt2` and `Mbt`: each node is fixed with one
+  rotation, as in Baby
+
 v0.17 Thu Oct 22 09:05:40 JST 2026
 --------------------------
 
